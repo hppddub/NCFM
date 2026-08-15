@@ -106,6 +106,7 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
         "CreateSecurityGroup",
     }
     assert set(network_tagging["Condition"]["ForAllValues:StringEquals"]["aws:TagKeys"]) == {
+        "Name",
         "Project",
         "aws:cloudformation:stack-name",
         "aws:cloudformation:stack-id",

@@ -85,6 +85,7 @@
         },
         "ForAllValues:StringEquals": {
           "aws:TagKeys": [
+            "Name",
             "Project",
             "aws:cloudformation:stack-name",
             "aws:cloudformation:stack-id",
