@@ -17,7 +17,7 @@ quota_code="$(aws service-quotas list-service-quotas \
   --service-code ec2 \
   --region "$region" \
   --query "Quotas[?QuotaName=='Running On-Demand G and VT instances'].QuotaCode | [0]" \
-  --output text)"
+  --output json | python3 -c 'import json, sys; print(json.load(sys.stdin) or "")')"
 
 if [[ -z "$quota_code" || "$quota_code" == "None" ]]; then
   echo "Could not resolve the G-family quota code in $region." >&2
