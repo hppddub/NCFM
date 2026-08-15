@@ -177,9 +177,6 @@
       "Action": "ec2:RunInstances",
       "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:volume/*",
       "Condition": {
-        "StringEquals": {
-          "ec2:InstanceType": "g6.xlarge"
-        },
         "Bool": {
           "ec2:Encrypted": "true"
         },
@@ -192,12 +189,7 @@
       "Sid": "CreateOnlyLowCostGpuNetworkInterface",
       "Effect": "Allow",
       "Action": "ec2:RunInstances",
-      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:network-interface/*",
-      "Condition": {
-        "StringEquals": {
-          "ec2:InstanceType": "g6.xlarge"
-        }
-      }
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:network-interface/*"
     },
     {
       "Sid": "UseOnlyProjectGpuNetwork",
@@ -209,7 +201,6 @@
       ],
       "Condition": {
         "StringEquals": {
-          "ec2:InstanceType": "g6.xlarge",
           "ec2:ResourceTag/Project": "ft-ncfm"
         }
       }
@@ -221,12 +212,7 @@
       "Resource": [
         "arn:aws:ec2:@@REGION@@::image/ami-*",
         "arn:aws:ec2:@@REGION@@::snapshot/*"
-      ],
-      "Condition": {
-        "StringEquals": {
-          "ec2:InstanceType": "g6.xlarge"
-        }
-      }
+      ]
     },
     {
       "Sid": "StopOrTerminateOnlyProjectInstances",

@@ -187,9 +187,15 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
         project_network["Condition"]["StringEquals"]["ec2:ResourceTag/Project"]
         == "ft-ncfm"
     )
+    instance_launch = statements["RunOnlyTaggedLowCostInstance"]
+    assert (
+        instance_launch["Condition"]["StringEquals"]["ec2:InstanceType"]
+        == "g6.xlarge"
+    )
     assert all(
-        statement["Condition"]["StringEquals"]["ec2:InstanceType"] == "g6.xlarge"
+        "ec2:InstanceType" not in json.dumps(statement.get("Condition", {}))
         for statement in run_statements
+        if statement["Sid"] != "RunOnlyTaggedLowCostInstance"
     )
     assert "ec2:ModifySubnetAttribute" in statements["ManageTaggedNetworkResources"]["Action"]
     assert "s3:DeleteBucket" in statements["ManageArtifactBucket"]["Action"]

@@ -52,8 +52,9 @@ pre-creation discovery is limited to the exact two role names and one instance
 profile that this stack declares; mutations remain path- and boundary-scoped.
 The launch policy separately checks every EC2 resource evaluated by
 `RunInstances`: the instance and VPC network must be project-tagged, the root
-volume must be encrypted and at most 200 GiB, and every resource is restricted
-to `g6.xlarge` launch context.
+volume must be encrypted and at most 200 GiB, and the mandatory instance
+authorization leg enforces `g6.xlarge`. AWS does not expose the instance-type
+condition key while evaluating the child volume, ENI, image, or snapshot legs.
 The operations policy grants only the five CloudShell actions needed to launch
 the browser shell and forward the signed-in user's temporary credentials; it
 does not grant `cloudshell:*`.
