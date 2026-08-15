@@ -106,12 +106,28 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
         "CreateSecurityGroup",
     }
     assert set(network_tagging["Condition"]["ForAllValues:StringEquals"]["aws:TagKeys"]) == {
-        "Name",
         "Project",
         "aws:cloudformation:stack-name",
         "aws:cloudformation:stack-id",
         "aws:cloudformation:logical-id",
     }
+
+    template_path = REPOSITORY_ROOT / "infra/aws/cloudformation/gpu-runner.yaml"
+    template = yaml.load(template_path.read_text(encoding="utf-8"), Loader=CloudFormationLoader)
+    network_types = {
+        "AWS::EC2::VPC",
+        "AWS::EC2::Subnet",
+        "AWS::EC2::RouteTable",
+        "AWS::EC2::InternetGateway",
+        "AWS::EC2::SecurityGroup",
+    }
+    declared_network_tag_keys = {
+        tag["Key"]
+        for resource in template["Resources"].values()
+        if resource["Type"] in network_types
+        for tag in resource.get("Properties", {}).get("Tags", [])
+    }
+    assert declared_network_tag_keys == {"Project"}
 
     launch_tagging = statements["TagGpuResourcesOnlyDuringLaunch"]
     assert (

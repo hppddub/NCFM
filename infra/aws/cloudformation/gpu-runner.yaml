@@ -105,8 +105,6 @@ Resources:
       EnableDnsHostnames: true
       EnableDnsSupport: true
       Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-vpc"
         - Key: Project
           Value: !Ref ProjectName
 
@@ -131,8 +129,6 @@ Resources:
       MapPublicIpOnLaunch: true
       VpcId: !Ref Vpc
       Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-gpu"
         - Key: Project
           Value: !Ref ProjectName
 
