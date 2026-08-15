@@ -69,6 +69,15 @@
       "Resource": "arn:aws:iam::@@ACCOUNT_ID@@:role/ft-ncfm/ft-ncfm-*"
     },
     {
+      "Sid": "DiscoverNamedRolesBeforeCreation",
+      "Effect": "Allow",
+      "Action": "iam:GetRole",
+      "Resource": [
+        "arn:aws:iam::@@ACCOUNT_ID@@:role/ft-ncfm-instance-role",
+        "arn:aws:iam::@@ACCOUNT_ID@@:role/ft-ncfm-guard-function-role"
+      ]
+    },
+    {
       "Sid": "AttachOnlyRequiredAWSPolicies",
       "Effect": "Allow",
       "Action": [
@@ -98,6 +107,12 @@
           ]
         }
       }
+    },
+    {
+      "Sid": "DiscoverNamedInstanceProfileBeforeCreation",
+      "Effect": "Allow",
+      "Action": "iam:GetInstanceProfile",
+      "Resource": "arn:aws:iam::@@ACCOUNT_ID@@:instance-profile/ft-ncfm-instance-profile"
     },
     {
       "Sid": "ManageOnlyProjectInstanceProfile",

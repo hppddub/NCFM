@@ -47,7 +47,9 @@ The script creates no password or access key. In IAM, configure console access
 privately, require a password reset, and enroll MFA before leaving the root
 session. Its policies restrict CloudFormation to `ft-ncfm-gpu`, restrict EC2
 launches to tagged `g6.xlarge` instances in the chosen Region, and require the
-checked-in workload permissions boundary on every role it can create.
+checked-in workload permissions boundary on every role it can create. Read-only
+pre-creation discovery is limited to the exact two role names and one instance
+profile that this stack declares; mutations remain path- and boundary-scoped.
 The operations policy grants only the five CloudShell actions needed to launch
 the browser shell and forward the signed-in user's temporary credentials; it
 does not grant `cloudshell:*`.

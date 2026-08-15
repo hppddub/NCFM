@@ -159,8 +159,20 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
     control_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-control-policy.json"
     control = json.loads(control_path.read_text(encoding="utf-8"))
     control_encoded = json.dumps(control)
+    control_statements = {statement["Sid"]: statement for statement in control["Statement"]}
     assert "stack/ft-ncfm-gpu/*" in control_encoded
     assert "iam:PermissionsBoundary" in control_encoded
+    role_discovery = control_statements["DiscoverNamedRolesBeforeCreation"]
+    assert role_discovery["Action"] == "iam:GetRole"
+    assert set(role_discovery["Resource"]) == {
+        "arn:aws:iam::@@ACCOUNT_ID@@:role/ft-ncfm-instance-role",
+        "arn:aws:iam::@@ACCOUNT_ID@@:role/ft-ncfm-guard-function-role",
+    }
+    profile_discovery = control_statements["DiscoverNamedInstanceProfileBeforeCreation"]
+    assert profile_discovery["Action"] == "iam:GetInstanceProfile"
+    assert profile_discovery["Resource"].endswith(
+        ":instance-profile/ft-ncfm-instance-profile"
+    )
 
     operations_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-operations-policy.json"
     operations = json.loads(operations_path.read_text(encoding="utf-8"))
