@@ -1,0 +1,43 @@
+experiment:
+  name: mnist_minivla_5pct
+  output_dir: artifacts/minivla_5pct
+  seeds: [42, 123, 1024]
+
+data:
+  dataset: mnist
+  cache_dir: data_cache
+  train_ratio: 0.05
+  validation_size: 512
+  stratified: true
+
+guide:
+  hidden_dim: 32
+  full_steps: 200
+  duration_ratio: 0.15
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.01
+
+influence:
+  sign: paper
+  elite_ratio: 0.05
+  reference_batch_size: 64
+  lissa_depth: 50
+  lissa_damping: 0.01
+  lissa_scale: 10.0
+  lissa_repeats: 1
+  hessian_batch_size: 32
+  beta: 1.0
+  normalization: positive_shift
+  epsilon: 1.0e-8
+
+distillation:
+  coreset_ratio: 0.05
+  batch_size: 64
+  num_frequencies: 64
+  hidden_dim: 32
+  steps: 150
+  discriminator_steps: 1
+  generator_lr: 0.03
+  discriminator_lr: 0.001
+  convergence_window_ratio: 0.10

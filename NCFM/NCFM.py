@@ -7,12 +7,35 @@ def calculate_norm(x_r, x_i):
     return torch.sqrt(torch.mul(x_r, x_r) + torch.mul(x_i, x_i))
 
 
-def calculate_imag(x):
-    return torch.mean(torch.sin(x), dim=1)
+def _normalized_sample_weights(x, sample_weights):
+    """Return validated weights for the sample dimension of a CF projection."""
+    if sample_weights is None:
+        return None
+    weights = torch.as_tensor(sample_weights, dtype=x.dtype, device=x.device).flatten()
+    if weights.numel() != x.shape[1]:
+        raise ValueError(
+            f"Expected {x.shape[1]} sample weights, received {weights.numel()}"
+        )
+    if not torch.isfinite(weights).all():
+        raise ValueError("Sample weights must be finite")
+    if (weights < 0).any():
+        raise ValueError("Sample weights must be non-negative")
+    total = weights.sum()
+    if total <= 0:
+        raise ValueError("At least one sample weight must be positive")
+    return weights / total
 
 
-def calculate_real(x):
-    return torch.mean(torch.cos(x), dim=1)
+def calculate_imag(x, sample_weights=None):
+    weights = _normalized_sample_weights(x, sample_weights)
+    values = torch.sin(x)
+    return torch.mean(values, dim=1) if weights is None else values @ weights
+
+
+def calculate_real(x, sample_weights=None):
+    weights = _normalized_sample_weights(x, sample_weights)
+    values = torch.cos(x)
+    return torch.mean(values, dim=1) if weights is None else values @ weights
 
 
 class CFLossFunc(nn.Module):
@@ -28,13 +51,15 @@ class CFLossFunc(nn.Module):
         self.alpha = alpha_for_loss
         self.beta = beta_for_loss
 
-    def forward(self, feat_tg, feat, t=None, args=None):
+    def forward(self, feat_tg, feat, t=None, args=None, target_weights=None):
         """
         Calculate CF loss between target and synthetic features.
         Args:
             feat_tg: target features from real data [B1 x D]
             feat: synthetic features [B2 x D]
             args: additional arguments containing num_freqs
+            target_weights: optional non-negative weights for real samples. When
+                omitted, the original uniform NCFM objective is unchanged.
         """
         # Generate random frequencies
         if t is None:
@@ -43,8 +68,9 @@ class CFLossFunc(nn.Module):
         t_x_imag = calculate_imag(torch.matmul(t, feat.t()))
         t_x_norm = calculate_norm(t_x_real, t_x_imag)
 
-        t_target_real = calculate_real(torch.matmul(t, feat_tg.t()))
-        t_target_imag = calculate_imag(torch.matmul(t, feat_tg.t()))
+        target_projection = torch.matmul(t, feat_tg.t())
+        t_target_real = calculate_real(target_projection, target_weights)
+        t_target_imag = calculate_imag(target_projection, target_weights)
         t_target_norm = calculate_norm(t_target_real, t_target_imag)
 
         # Calculate amplitude difference and phase difference
@@ -64,7 +90,7 @@ class CFLossFunc(nn.Module):
         return loss
 
 
-def match_loss(img_real, img_syn, model,sampling_net, args=None):
+def match_loss(img_real, img_syn, model, sampling_net, args=None, real_weights=None):
     """Matching losses (feature or gradient)"""
     with torch.no_grad():
         _, feat_tg = model(img_real, return_features=True)
@@ -75,11 +101,15 @@ def match_loss(img_real, img_syn, model,sampling_net, args=None):
         t = sampling_net(args.device)
     else:
         t = None
-    loss = 300 * args.cf_loss_func(feat_tg, feat, t, args)
+    loss = 300 * args.cf_loss_func(
+        feat_tg, feat, t, args, target_weights=real_weights
+    )
     return loss
 
 
-def mutil_layer_match_loss(img_real, img_syn, model,sampling_net, args=None):
+def mutil_layer_match_loss(
+    img_real, img_syn, model, sampling_net, args=None, real_weights=None
+):
 
     # Ensure layer_index is a list
     assert isinstance(
@@ -110,7 +140,9 @@ def mutil_layer_match_loss(img_real, img_syn, model,sampling_net, args=None):
             feat = F.normalize(feat, dim=1)  # Normalize the feature
             feat_tg = F.normalize(feat_tg, dim=1)  # Normalize the target feature
             t = None  # Adjust this based on your CFLossFunc usage
-            loss += 300 * args.cf_loss_func(feat_tg, feat, t, args)
+            loss += 300 * args.cf_loss_func(
+                feat_tg, feat, t, args, target_weights=real_weights
+            )
 
     return loss
 

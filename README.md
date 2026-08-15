@@ -1,4 +1,29 @@
-# [CVPR2025] Dataset Distillation with Neural Characteristic Function: A Minmax Perspective 
+# [CVPR2025] Dataset Distillation with Neural Characteristic Function: A Minmax Perspective
+
+> **Replication branch:** This branch adds an unofficial, auditable reproduction
+> scaffold for [FT-NCFM (arXiv:2511.16233)](https://arxiv.org/abs/2511.16233) on
+> top of the official NCFM code. It is not code released by either paper's authors.
+
+## FT-NCFM reproduction
+
+Start with the [replication roadmap](docs/REPLICATION_ROADMAP.md), then see the
+[paper-to-code map](docs/PAPER_TO_CODE.md) and
+[experiment protocol](docs/EXPERIMENT_PROTOCOL.md). The first executable gate is
+a 5% MNIST-based VLA-shaped proxy that tests LiSSA influence scoring, visual-only
+counterexamples, influence-weighted characteristic-function matching, and min-max
+loss convergence. It is a plumbing test, not a robotics benchmark result.
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-ft.txt
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ft_ncfm.experiment `
+  --config configs/ft_ncfm/minivla_5pct.yaml
+```
+
+Linux/CUDA users can build the checked-in container instead. Every experiment
+writes a manifest, raw metric stream, influence artifact, coreset, and summary
+under the ignored `artifacts/` directory.
 
 Official PyTorch implementation of the paper ["Dataset Distillation with Neural Characteristic Function"](https://arxiv.org/abs/2502.20653) (NCFM) in CVPR 2025.
 
@@ -89,4 +114,3 @@ If you find NCFM useful for your research and applications, please cite using th
 
 ## Acknowledgement
 We sincerely thank the developers of the following projects for their valuable contributions and inspiration: [MTT](https://github.com/GeorgeCazenavette/mtt-distillation), [DATM](https://github.com/NUS-HPC-AI-Lab/DATM), [DC/DM](https://github.com/VICO-UoE/DatasetCondensation), [IDC](https://github.com/snu-mllab/Efficient-Dataset-Condensation), [SRe2L](https://github.com/VILA-Lab/SRe2L), [RDED](https://github.com/LINs-lab/RDED), [DANCE](https://github.com/Hansong-Zhang/DANCE). We draw inspiration from these fantastic projects!
-

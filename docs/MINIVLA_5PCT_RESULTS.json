@@ -1,0 +1,25 @@
+{
+  "scope": "algorithmic_proxy_not_vla_benchmark",
+  "source_dataset": "MNIST",
+  "source_samples": 3000,
+  "source_ratio": 0.05,
+  "synthetic_samples": 150,
+  "elite_samples": 150,
+  "seeds": [42, 123, 1024],
+  "uniform": {
+    "initial_median_by_seed": [0.0713530555, 0.0625082254, 0.0729371607],
+    "final_median_by_seed": [0.0209578723, 0.0301738530, 0.0215244312],
+    "mean_initial_median": 0.0689328139,
+    "mean_final_median": 0.0242187188,
+    "mean_relative_reduction": 0.6486619730,
+    "all_converged": true
+  },
+  "ft_ncfm": {
+    "initial_median_by_seed": [0.0575436465, 0.0992678627, 0.0620960332],
+    "final_median_by_seed": [0.0105199795, 0.0307608750, 0.0159969367],
+    "mean_initial_median": 0.0729691808,
+    "mean_final_median": 0.0190925971,
+    "mean_relative_reduction": 0.7383471097,
+    "all_converged": true
+  }
+}
