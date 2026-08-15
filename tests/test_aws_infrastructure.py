@@ -105,9 +105,12 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
         "CreateInternetGateway",
         "CreateSecurityGroup",
     }
-    assert network_tagging["Condition"]["ForAllValues:StringEquals"]["aws:TagKeys"] == [
-        "Project"
-    ]
+    assert set(network_tagging["Condition"]["ForAllValues:StringEquals"]["aws:TagKeys"]) == {
+        "Project",
+        "aws:cloudformation:stack-name",
+        "aws:cloudformation:stack-id",
+        "aws:cloudformation:logical-id",
+    }
 
     launch_tagging = statements["TagGpuResourcesOnlyDuringLaunch"]
     assert (
@@ -117,6 +120,9 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
         "Name",
         "Project",
         "FTNCFMMaxRuntimeMinutes",
+        "aws:cloudformation:stack-name",
+        "aws:cloudformation:stack-id",
+        "aws:cloudformation:logical-id",
     }
     assert "ec2:ModifySubnetAttribute" in statements["ManageTaggedNetworkResources"]["Action"]
     assert "s3:DeleteBucket" in statements["ManageArtifactBucket"]["Action"]

@@ -85,7 +85,10 @@
         },
         "ForAllValues:StringEquals": {
           "aws:TagKeys": [
-            "Project"
+            "Project",
+            "aws:cloudformation:stack-name",
+            "aws:cloudformation:stack-id",
+            "aws:cloudformation:logical-id"
           ]
         }
       }
@@ -133,7 +136,10 @@
           "aws:TagKeys": [
             "Name",
             "Project",
-            "FTNCFMMaxRuntimeMinutes"
+            "FTNCFMMaxRuntimeMinutes",
+            "aws:cloudformation:stack-name",
+            "aws:cloudformation:stack-id",
+            "aws:cloudformation:logical-id"
           ]
         }
       }

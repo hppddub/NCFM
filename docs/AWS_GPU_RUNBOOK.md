@@ -118,6 +118,9 @@ least-scope instance role, encrypted result bucket, and related support resource
 `LaunchInstance=false` is the template default, so no GPU instance exists yet.
 The artifact bucket is retained on a normal stack deletion but is removed if the
 initial stack creation rolls back, avoiding an empty orphan that blocks a retry.
+The scoped EC2 tag policy allows only the declared project tags and the three
+reserved `aws:cloudformation:*` identity tags that CloudFormation automatically
+adds to supported resources.
 Review the stack in CloudFormation before proceeding.
 
 ## 6. Launch only after the price and quota check
