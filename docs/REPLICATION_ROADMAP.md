@@ -52,7 +52,11 @@ reported as a VLA benchmark reproduction.
 
 - Use MNIST as a small public visual source and derive a VLA-shaped proxy task:
   image plus instruction token predicts a continuous action vector.
-- Use a deterministic stratified 5% of the 60,000-example training split.
+- First use a deterministic stratified 5% of the 60,000-example training split as
+  a cheap nested-fraction plumbing smoke; label its 150-record synthetic output as
+  0.25% of the full corpus.
+- Then use the full 60,000-example source and synthesize 3,000 records for the
+  paper-style true 5% ratio gate.
 - Run the guide, influence, counterexample, and weighted NCFM stages end to end.
 - Compare full proxy data, random 5%, influence-only 5%, uniform NCFM 5%, and
   FT-NCFM 5% using seeds 42, 123, and 1024.
@@ -104,8 +108,9 @@ preprocessing cost on LIBERO. The current Windows workspace reports no NVIDIA GP
 CPU execution is appropriate for unit tests and the public-data proxy, not for a
 credible benchmark-scale performance comparison.
 
-The AWS path is documented in `AWS_GPU_RUNBOOK.md`. Its first gate uses a
-single-GPU `g6.xlarge`; P4/P5 compute is not launched until live price, Region
-offering, family quota, budget, and the explicit billable flag all pass. The
-independent pre-cloud review and remaining paper-fidelity blockers are recorded in
-`AUDIT_2026-08-15.md`.
+The preferred hosted-GPU path is documented in `COLAB_A100_RUNBOOK.md`. The AWS
+alternative is documented in `AWS_GPU_RUNBOOK.md`; it remains disabled while the
+accelerated-instance quota is unavailable. P4/P5 compute is not launched until
+live price, Region offering, family quota, budget, and the explicit billable flag
+all pass. The independent pre-cloud review and remaining paper-fidelity blockers
+are recorded in `AUDIT_2026-08-15.md`.

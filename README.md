@@ -8,8 +8,9 @@
 
 Start with the [replication roadmap](docs/REPLICATION_ROADMAP.md), then see the
 [paper-to-code map](docs/PAPER_TO_CODE.md) and
-[experiment protocol](docs/EXPERIMENT_PROTOCOL.md). For cloud execution, use the
-[AWS GPU runbook](docs/AWS_GPU_RUNBOOK.md); the initial independent review is in
+[experiment protocol](docs/EXPERIMENT_PROTOCOL.md). For GPU execution, use the
+[Colab A100 runbook](docs/COLAB_A100_RUNBOOK.md). The quota-gated alternative is
+the [AWS GPU runbook](docs/AWS_GPU_RUNBOOK.md); the initial independent review is in
 [the 15 August audit](docs/AUDIT_2026-08-15.md). The first executable gate is
 a 5% MNIST-based VLA-shaped proxy that tests LiSSA influence scoring, visual-only
 counterexamples, influence-weighted characteristic-function matching, and min-max

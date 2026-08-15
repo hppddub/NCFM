@@ -22,7 +22,7 @@ The checks below were executed in `us-east-2` through the scoped
 | Artifact-bucket public-access blocks | All enabled |
 | Workload-role permissions boundary | Attached |
 | Monthly budget | USD 25; recorded spend USD 0 at verification time |
-| G/VT On-Demand quota request | 4 vCPUs, `CASE_OPENED` |
+| G/VT On-Demand quota request | 4 vCPUs, denied by AWS; appeal deferred |
 | Applied G/VT quota | 0 vCPUs; compute remains blocked |
 
 ## Selected smoke-test target
@@ -39,9 +39,17 @@ The checks below were executed in `us-east-2` through the scoped
 The low-cost L4 run is an infrastructure and convergence smoke test. It is not an
 exact reproduction of the paper's A100-SXM4-80GB environment.
 
-## Next gate
+## Current compute route
 
-Do not enable compute until the applied G/VT quota is at least 4 vCPUs. When it is:
+AWS compute remains disabled after the quota denial. The immediate experiment path
+has moved to Colab Pro using the checked-in `COLAB_A100_RUNBOOK.md` and A100
+notebook. The support-only AWS stack remains at `LaunchInstance=false` and no AWS
+GPU launch is part of the Colab procedure.
+
+## Future AWS gate
+
+Do not enable AWS compute until an appeal is approved and the applied G/VT quota
+is at least 4 vCPUs. When it is:
 
 1. Rerun `infra/aws/cloudshell/preflight.sh` and record the current AZ and price.
 2. Confirm the monthly budget and absence of existing project instances.

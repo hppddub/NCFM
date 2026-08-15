@@ -356,6 +356,15 @@ def run_seed(
         "platform": platform.platform(),
         "python": platform.python_version(),
         "cuda": cuda_metadata(device),
+        "execution": {
+            "provider": os.getenv("FT_NCFM_EXECUTION_PROVIDER", "local"),
+            "runtime_id": os.getenv("FT_NCFM_RUNTIME_ID"),
+        },
+        "colab": {
+            "release_tag": os.getenv("COLAB_RELEASE_TAG"),
+            "backend_version": os.getenv("COLAB_BACKEND_VERSION"),
+            "runtime_version": os.getenv("COLAB_RUNTIME_VERSION"),
+        },
         "aws": {
             "ami_id": os.getenv("FT_NCFM_AWS_AMI_ID"),
             "region": os.getenv("FT_NCFM_AWS_REGION"),
