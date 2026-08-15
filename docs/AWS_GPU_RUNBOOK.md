@@ -25,7 +25,7 @@ price is hard-coded in this repository.
 
 1. Sign in to the AWS console and enable MFA for the root user.
 2. Do not use root credentials for the experiment. Use an IAM Identity Center
-   administrator or a dedicated role. The initial CloudFormation deployment needs
+   administrator or the scoped deployment user below. The initial CloudFormation deployment needs
    permission to create EC2, VPC, IAM, S3, Lambda, EventBridge, CloudWatch Logs,
    and Systems Manager resources.
 3. In **Billing and Cost Management → Budgets**, create a monthly cost budget with
@@ -34,6 +34,20 @@ price is hard-coded in this repository.
 
 Budget alerts are delayed billing signals, not hard caps. The instance therefore
 also has a systemd stop timer and a separate EventBridge/Lambda stop backstop.
+
+If enabling AWS Organizations would expire free-plan credits, preserve them and
+create the standalone-account deployment user instead:
+
+```bash
+bash infra/aws/cloudshell/create_deployer.sh us-east-2 --dry-run
+bash infra/aws/cloudshell/create_deployer.sh us-east-2 --apply
+```
+
+The script creates no password or access key. In IAM, configure console access
+privately, require a password reset, and enroll MFA before leaving the root
+session. Its policies restrict CloudFormation to `ft-ncfm-gpu`, restrict EC2
+launches to tagged `g6.xlarge` instances in the chosen Region, and require the
+checked-in workload permissions boundary on every role it can create.
 
 ## 3. Open AWS CloudShell
 

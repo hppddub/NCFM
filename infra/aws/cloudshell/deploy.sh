@@ -21,18 +21,21 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 template="$repo_root/infra/aws/cloudformation/gpu-runner.yaml"
+account_id="$(aws sts get-caller-identity --query Account --output text)"
+boundary_arn="arn:aws:iam::$account_id:policy/FTNCFMWorkloadBoundary"
 
 aws cloudformation deploy \
   --region "$region" \
   --stack-name "$stack_name" \
   --template-file "$template" \
-  --capabilities CAPABILITY_IAM \
+  --capabilities CAPABILITY_NAMED_IAM \
   --no-fail-on-empty-changeset \
   --parameter-overrides \
     "AvailabilityZone=$availability_zone" \
     "InstanceType=$instance_type" \
     "LaunchInstance=$launch_instance" \
-    "MaxRuntimeMinutes=$max_runtime_minutes"
+    "MaxRuntimeMinutes=$max_runtime_minutes" \
+    "WorkloadPermissionsBoundaryArn=$boundary_arn"
 
 aws cloudformation describe-stacks \
   --region "$region" \

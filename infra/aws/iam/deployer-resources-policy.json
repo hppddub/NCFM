@@ -1,0 +1,176 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageArtifactBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketTagging",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketTagging",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::ft-ncfm-artifacts-@@ACCOUNT_ID@@-@@REGION@@",
+        "arn:aws:s3:::ft-ncfm-artifacts-@@ACCOUNT_ID@@-@@REGION@@/*"
+      ]
+    },
+    {
+      "Sid": "DescribeEC2",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeImages",
+        "ec2:DescribeInstanceAttribute",
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceStatus",
+        "ec2:DescribeInstanceTypeOfferings",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeInternetGateways",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeTags",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeVpcs"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CreateTaggedNetworkResources",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateVpc",
+        "ec2:CreateSubnet",
+        "ec2:CreateRouteTable",
+        "ec2:CreateInternetGateway",
+        "ec2:CreateSecurityGroup"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Project": "ft-ncfm"
+        }
+      }
+    },
+    {
+      "Sid": "ManageTaggedNetworkResources",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AttachInternetGateway",
+        "ec2:DetachInternetGateway",
+        "ec2:DeleteInternetGateway",
+        "ec2:DeleteVpc",
+        "ec2:ModifyVpcAttribute",
+        "ec2:DeleteSubnet",
+        "ec2:DeleteRouteTable",
+        "ec2:CreateRoute",
+        "ec2:DeleteRoute",
+        "ec2:AssociateRouteTable",
+        "ec2:DisassociateRouteTable",
+        "ec2:DeleteSecurityGroup",
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:CreateTags",
+        "ec2:DeleteTags"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "ft-ncfm"
+        }
+      }
+    },
+    {
+      "Sid": "RunOnlyLowCostTaggedGPU",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": [
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:instance/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:volume/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:network-interface/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Project": "ft-ncfm",
+          "ec2:InstanceType": "g6.xlarge"
+        }
+      }
+    },
+    {
+      "Sid": "UseOnlyProjectNetworkAndApprovedImage",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": [
+        "arn:aws:ec2:@@REGION@@::image/ami-*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:subnet/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:security-group/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "ec2:InstanceType": "g6.xlarge"
+        }
+      }
+    },
+    {
+      "Sid": "StopOrTerminateOnlyProjectInstances",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:StopInstances",
+        "ec2:TerminateInstances"
+      ],
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "ft-ncfm"
+        }
+      }
+    },
+    {
+      "Sid": "ManageRuntimeGuardFunction",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:DeleteFunction",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags"
+      ],
+      "Resource": "arn:aws:lambda:@@REGION@@:@@ACCOUNT_ID@@:function:ft-ncfm-runtime-guard"
+    },
+    {
+      "Sid": "ManageRuntimeGuardSchedule",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:TagResource",
+        "events:UntagResource",
+        "events:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:events:@@REGION@@:@@ACCOUNT_ID@@:rule/ft-ncfm-runtime-guard"
+    }
+  ]
+}

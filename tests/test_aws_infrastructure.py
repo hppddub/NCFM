@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -54,6 +55,14 @@ def test_cloudformation_defaults_to_no_compute_and_no_inbound_access() -> None:
     assert resources["GuardFunction"]["Condition"] == "LaunchCompute"
     assert resources["GuardSchedule"]["Condition"] == "LaunchCompute"
     assert resources["ArtifactBucket"]["DeletionPolicy"] == "Retain"
+    assert (
+        resources["InstanceRole"]["Properties"]["PermissionsBoundary"]
+        == "WorkloadPermissionsBoundaryArn"
+    )
+    assert (
+        resources["GuardFunctionRole"]["Properties"]["PermissionsBoundary"]
+        == "WorkloadPermissionsBoundaryArn"
+    )
 
 
 def test_deploy_script_requires_explicit_billable_acknowledgement() -> None:
@@ -62,6 +71,8 @@ def test_deploy_script_requires_explicit_billable_acknowledgement() -> None:
     assert "FT_NCFM_ALLOW_BILLABLE" in script
     assert "Billable launch blocked" in script
     assert 'launch_instance="${4:-false}"' in script
+    assert "CAPABILITY_NAMED_IAM" in script
+    assert "WorkloadPermissionsBoundaryArn=$boundary_arn" in script
 
 
 def test_preflight_uses_json_for_paginated_quota_query() -> None:
@@ -70,3 +81,19 @@ def test_preflight_uses_json_for_paginated_quota_query() -> None:
     assert "Quotas[?QuotaName=='$quota_name'].Value | [0]" in script
     assert "--output json" in script
     assert 'quota_pass="false"' in script
+
+
+def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
+    policy_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-resources-policy.json"
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    encoded = json.dumps(policy)
+
+    assert '"ec2:InstanceType": "g6.xlarge"' in encoded
+    assert "p4d.24xlarge" not in encoded
+    assert "p5.4xlarge" not in encoded
+
+    control_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-control-policy.json"
+    control = json.loads(control_path.read_text(encoding="utf-8"))
+    control_encoded = json.dumps(control)
+    assert "stack/ft-ncfm-gpu/*" in control_encoded
+    assert "iam:PermissionsBoundary" in control_encoded
