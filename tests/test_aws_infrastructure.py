@@ -99,6 +99,7 @@ def test_launch_dry_run_cannot_create_compute() -> None:
     assert "root_volume_gib > 200" in script
     assert "HttpTokens=required" in script
     assert "DryRunOperation" in script
+    assert 'dry_run_status" -ne 0' in script
 
 
 def test_deployer_audit_covers_allow_and_deny_paths() -> None:

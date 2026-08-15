@@ -104,7 +104,7 @@ dry_run_output="$(aws ec2 run-instances \
 dry_run_status=$?
 set -e
 
-if [[ "$dry_run_status" -eq 255 && "$dry_run_output" == *"DryRunOperation"* ]]; then
+if [[ "$dry_run_status" -ne 0 && "$dry_run_output" == *"DryRunOperation"* ]]; then
   echo "DRY RUN PASSED: AWS authorized the exact request and created no instance."
   exit 0
 fi
