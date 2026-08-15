@@ -19,7 +19,7 @@ Before enabling billable compute, run the repeatable least-privilege audit as an
 administrator and the exact EC2 authorization check as the deployer:
 
 ```bash
-bash infra/aws/cloudshell/audit_deployer.sh us-east-2 797273592302
+bash infra/aws/cloudshell/audit_deployer.sh us-east-2 YOUR_12_DIGIT_ACCOUNT_ID
 bash infra/aws/cloudshell/dry_run_launch.sh us-east-2 ft-ncfm-gpu
 ```
 
