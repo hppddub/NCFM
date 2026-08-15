@@ -62,3 +62,11 @@ def test_deploy_script_requires_explicit_billable_acknowledgement() -> None:
     assert "FT_NCFM_ALLOW_BILLABLE" in script
     assert "Billable launch blocked" in script
     assert 'launch_instance="${4:-false}"' in script
+
+
+def test_preflight_uses_json_for_paginated_quota_query() -> None:
+    script = (REPOSITORY_ROOT / "infra/aws/cloudshell/preflight.sh").read_text(encoding="utf-8")
+
+    assert "Quotas[?QuotaName=='$quota_name'].Value | [0]" in script
+    assert "--output json" in script
+    assert 'quota_pass="false"' in script

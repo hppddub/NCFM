@@ -37,8 +37,12 @@ required_vcpus="$(aws ec2 describe-instance-types \
 quota_value="$(aws service-quotas list-service-quotas \
   --service-code ec2 \
   --region "$region" \
-  --query "Quotas[?QuotaName=='$quota_name']|[0].Value" \
-  --output text)"
+  --query "Quotas[?QuotaName=='$quota_name'].Value | [0]" \
+  --output json)"
+
+if [[ -z "$quota_value" || "$quota_value" == "null" ]]; then
+  quota_value="0"
+fi
 
 echo
 echo "Preflight result"
@@ -49,6 +53,7 @@ printf '  Required vCPUs:         %s\n' "$required_vcpus"
 printf '  Applied family quota:   %s\n' "$quota_value"
 printf '  Runtime guard (minutes): %s\n' "$max_runtime_minutes"
 
+quota_pass="true"
 if python3 - "$required_vcpus" "$quota_value" <<'PY'
 import sys
 raise SystemExit(0 if float(sys.argv[2]) >= float(sys.argv[1]) else 1)
@@ -60,7 +65,7 @@ else
   echo
   echo "Request at least $required_vcpus vCPUs for: $quota_name"
   echo "https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas/?region=$region"
-  exit 4
+  quota_pass="false"
 fi
 
 echo
@@ -104,3 +109,7 @@ PY
 
 echo
 echo "PREFLIGHT_AZ=$availability_zone"
+
+if [[ "$quota_pass" != "true" ]]; then
+  exit 4
+fi
