@@ -120,7 +120,8 @@ The artifact bucket is retained on a normal stack deletion but is removed if the
 initial stack creation rolls back, avoiding an empty orphan that blocks a retry.
 The scoped EC2 tag policy allows only the declared `Project` tag and the three
 reserved `aws:cloudformation:*` identity tags that CloudFormation automatically
-adds to supported resources.
+adds to supported resources. Subnet, route-table, and security-group creation is
+also restricted to the stack's already tagged project VPC.
 Review the stack in CloudFormation before proceeding.
 
 ## 6. Launch only after the price and quota check

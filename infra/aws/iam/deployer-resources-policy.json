@@ -94,6 +94,21 @@
       }
     },
     {
+      "Sid": "UseOnlyProjectVpcForNetworkCreation",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSubnet",
+        "ec2:CreateRouteTable",
+        "ec2:CreateSecurityGroup"
+      ],
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:vpc/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "ft-ncfm"
+        }
+      }
+    },
+    {
       "Sid": "ManageTaggedNetworkResources",
       "Effect": "Allow",
       "Action": [

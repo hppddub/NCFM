@@ -129,6 +129,18 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
     }
     assert declared_network_tag_keys == {"Project"}
 
+    vpc_dependency = statements["UseOnlyProjectVpcForNetworkCreation"]
+    assert set(vpc_dependency["Action"]) == {
+        "ec2:CreateSubnet",
+        "ec2:CreateRouteTable",
+        "ec2:CreateSecurityGroup",
+    }
+    assert vpc_dependency["Resource"].endswith(":vpc/*")
+    assert (
+        vpc_dependency["Condition"]["StringEquals"]["ec2:ResourceTag/Project"]
+        == "ft-ncfm"
+    )
+
     launch_tagging = statements["TagGpuResourcesOnlyDuringLaunch"]
     assert (
         launch_tagging["Condition"]["StringEquals"]["ec2:CreateAction"] == "RunInstances"
