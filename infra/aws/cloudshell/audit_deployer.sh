@@ -171,7 +171,11 @@ quota_code="$(aws service-quotas list-service-quotas \
   --service-code ec2 \
   --region "$region" \
   --query "Quotas[?QuotaName=='Running On-Demand G and VT instances'].QuotaCode | [0]" \
-  --output text)"
+  --output json | python3 -c 'import json, sys; print(json.load(sys.stdin) or "")')"
+[[ -n "$quota_code" ]] || {
+  echo "FAIL: could not resolve the G-family quota code in $region." >&2
+  exit 6
+}
 expect_decision allowed "request only G-family quota" \
   servicequotas:RequestServiceQuotaIncrease \
   "arn:aws:servicequotas:$region:$account_id:ec2/$quota_code"

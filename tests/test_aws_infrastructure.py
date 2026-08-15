@@ -117,6 +117,7 @@ def test_deployer_audit_covers_allow_and_deny_paths() -> None:
     assert "reject 201-GiB volume leg" in script
     assert "authorize public DLAMI snapshot leg" in script
     assert "reject an unrelated CloudFormation stack" in script
+    assert "json.load(sys.stdin)" in script
 
 
 def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
