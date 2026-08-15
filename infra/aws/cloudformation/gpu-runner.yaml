@@ -57,7 +57,7 @@ Conditions:
 Resources:
   ArtifactBucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub "ft-ncfm-artifacts-${AWS::AccountId}-${AWS::Region}"

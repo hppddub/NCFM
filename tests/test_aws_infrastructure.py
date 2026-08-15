@@ -54,7 +54,7 @@ def test_cloudformation_defaults_to_no_compute_and_no_inbound_access() -> None:
     assert instance["Properties"]["InstanceInitiatedShutdownBehavior"] == "stop"
     assert resources["GuardFunction"]["Condition"] == "LaunchCompute"
     assert resources["GuardSchedule"]["Condition"] == "LaunchCompute"
-    assert resources["ArtifactBucket"]["DeletionPolicy"] == "Retain"
+    assert resources["ArtifactBucket"]["DeletionPolicy"] == "RetainExceptOnCreate"
     assert (
         resources["InstanceRole"]["Properties"]["PermissionsBoundary"]
         == "WorkloadPermissionsBoundaryArn"
@@ -92,6 +92,35 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
     assert "p4d.24xlarge" not in encoded
     assert "p5.4xlarge" not in encoded
 
+    statements = {statement["Sid"]: statement for statement in policy["Statement"]}
+    network_tagging = statements["TagNetworkResourcesOnlyDuringCreation"]
+    assert network_tagging["Action"] == "ec2:CreateTags"
+    assert (
+        network_tagging["Condition"]["StringEquals"]["aws:RequestTag/Project"] == "ft-ncfm"
+    )
+    assert set(network_tagging["Condition"]["StringEquals"]["ec2:CreateAction"]) == {
+        "CreateVpc",
+        "CreateSubnet",
+        "CreateRouteTable",
+        "CreateInternetGateway",
+        "CreateSecurityGroup",
+    }
+    assert network_tagging["Condition"]["ForAllValues:StringEquals"]["aws:TagKeys"] == [
+        "Project"
+    ]
+
+    launch_tagging = statements["TagGpuResourcesOnlyDuringLaunch"]
+    assert (
+        launch_tagging["Condition"]["StringEquals"]["ec2:CreateAction"] == "RunInstances"
+    )
+    assert set(launch_tagging["Condition"]["ForAllValues:StringEquals"]["aws:TagKeys"]) == {
+        "Name",
+        "Project",
+        "FTNCFMMaxRuntimeMinutes",
+    }
+    assert "ec2:ModifySubnetAttribute" in statements["ManageTaggedNetworkResources"]["Action"]
+    assert "s3:DeleteBucket" in statements["ManageArtifactBucket"]["Action"]
+
     control_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-control-policy.json"
     control = json.loads(control_path.read_text(encoding="utf-8"))
     control_encoded = json.dumps(control)
@@ -103,3 +132,4 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
     operations_encoded = json.dumps(operations)
     assert "cloudshell:PutCredentials" in operations_encoded
     assert "cloudshell:*" not in operations_encoded
+    assert "iam:CreateServiceLinkedRole" not in operations_encoded

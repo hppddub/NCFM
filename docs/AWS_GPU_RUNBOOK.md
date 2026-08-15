@@ -92,6 +92,18 @@ If quota fails, open **Service Quotas → Amazon EC2** in the selected Region an
 request the reported vCPU amount for either **Running On-Demand G and VT
 instances** or **Running On-Demand P instances**. AWS may take time to approve it.
 
+On a new standalone account, the first request can fail with
+`DependencyAccessDeniedException` because Service Quotas has not yet created its
+service-linked role. Use root or another IAM administrator once:
+
+```bash
+aws iam create-service-linked-role \
+  --aws-service-name servicequotas.amazonaws.com
+```
+
+Then return to the scoped deployment user and resubmit the quota request. Do not
+grant the deployment user general service-linked-role creation permission.
+
 ## 5. Deploy support resources with compute disabled
 
 Replace `ca-central-1a` with the exact `PREFLIGHT_AZ` value:
@@ -104,6 +116,8 @@ bash infra/aws/cloudshell/deploy.sh \
 This first deployment creates the isolated VPC, no-ingress security group,
 least-scope instance role, encrypted result bucket, and related support resources.
 `LaunchInstance=false` is the template default, so no GPU instance exists yet.
+The artifact bucket is retained on a normal stack deletion but is removed if the
+initial stack creation rolls back, avoiding an empty orphan that blocks a retry.
 Review the stack in CloudFormation before proceeding.
 
 ## 6. Launch only after the price and quota check

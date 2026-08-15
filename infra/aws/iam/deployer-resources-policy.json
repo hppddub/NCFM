@@ -18,6 +18,7 @@
         "s3:PutEncryptionConfiguration",
         "s3:PutLifecycleConfiguration",
         "s3:PutBucketPublicAccessBlock",
+        "s3:DeleteBucket",
         "s3:ListBucket",
         "s3:GetObject",
         "s3:PutObject"
@@ -67,6 +68,29 @@
       }
     },
     {
+      "Sid": "TagNetworkResourcesOnlyDuringCreation",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:*/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": [
+            "CreateVpc",
+            "CreateSubnet",
+            "CreateRouteTable",
+            "CreateInternetGateway",
+            "CreateSecurityGroup"
+          ],
+          "aws:RequestTag/Project": "ft-ncfm"
+        },
+        "ForAllValues:StringEquals": {
+          "aws:TagKeys": [
+            "Project"
+          ]
+        }
+      }
+    },
+    {
       "Sid": "ManageTaggedNetworkResources",
       "Effect": "Allow",
       "Action": [
@@ -75,6 +99,7 @@
         "ec2:DeleteInternetGateway",
         "ec2:DeleteVpc",
         "ec2:ModifyVpcAttribute",
+        "ec2:ModifySubnetAttribute",
         "ec2:DeleteSubnet",
         "ec2:DeleteRouteTable",
         "ec2:CreateRoute",
@@ -91,6 +116,25 @@
       "Condition": {
         "StringEquals": {
           "ec2:ResourceTag/Project": "ft-ncfm"
+        }
+      }
+    },
+    {
+      "Sid": "TagGpuResourcesOnlyDuringLaunch",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:*/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": "RunInstances",
+          "aws:RequestTag/Project": "ft-ncfm"
+        },
+        "ForAllValues:StringEquals": {
+          "aws:TagKeys": [
+            "Name",
+            "Project",
+            "FTNCFMMaxRuntimeMinutes"
+          ]
         }
       }
     },
