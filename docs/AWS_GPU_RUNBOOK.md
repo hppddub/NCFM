@@ -48,6 +48,9 @@ privately, require a password reset, and enroll MFA before leaving the root
 session. Its policies restrict CloudFormation to `ft-ncfm-gpu`, restrict EC2
 launches to tagged `g6.xlarge` instances in the chosen Region, and require the
 checked-in workload permissions boundary on every role it can create.
+The operations policy grants only the five CloudShell actions needed to launch
+the browser shell and forward the signed-in user's temporary credentials; it
+does not grant `cloudshell:*`.
 
 ## 3. Open AWS CloudShell
 

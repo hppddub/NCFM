@@ -5,8 +5,8 @@ region="${1:-us-east-2}"
 mode="${2:---dry-run}"
 user_name="ft-ncfm-deployer"
 
-if [[ "$mode" != "--dry-run" && "$mode" != "--apply" ]]; then
-  echo "Usage: $0 [REGION] [--dry-run|--apply]" >&2
+if [[ "$mode" != "--dry-run" && "$mode" != "--apply" && "$mode" != "--update" ]]; then
+  echo "Usage: $0 [REGION] [--dry-run|--apply|--update]" >&2
   exit 2
 fi
 
@@ -72,6 +72,61 @@ declare -A policy_files=(
   [FTNCFMDeployerResources]="$tmp_dir/resources.json"
   [FTNCFMDeployerOperations]="$tmp_dir/operations.json"
 )
+
+if [[ "$mode" == "--update" ]]; then
+  if ! aws iam get-user --user-name "$user_name" >/dev/null 2>&1; then
+    echo "Missing user: $user_name" >&2
+    exit 5
+  fi
+
+  for policy_name in FTNCFMWorkloadBoundary FTNCFMDeployerControl FTNCFMDeployerResources FTNCFMDeployerOperations; do
+    policy_arn="arn:aws:iam::$account_id:policy/$policy_name"
+    default_version="$(aws iam get-policy \
+      --policy-arn "$policy_arn" \
+      --query 'Policy.DefaultVersionId' \
+      --output text)"
+    current_file="$tmp_dir/$policy_name-current.json"
+    aws iam get-policy-version \
+      --policy-arn "$policy_arn" \
+      --version-id "$default_version" \
+      --query 'PolicyVersion.Document' \
+      --output json >"$current_file"
+
+    if python3 - "${policy_files[$policy_name]}" "$current_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as expected_file:
+    expected = json.load(expected_file)
+with open(sys.argv[2], encoding="utf-8") as current_file:
+    current = json.load(current_file)
+raise SystemExit(0 if expected == current else 1)
+PY
+    then
+      echo "$policy_name is unchanged."
+      continue
+    fi
+
+    version_count="$(aws iam list-policy-versions \
+      --policy-arn "$policy_arn" \
+      --query 'length(Versions)' \
+      --output text)"
+    if (( version_count >= 5 )); then
+      oldest_version="$(aws iam list-policy-versions \
+        --policy-arn "$policy_arn" \
+        --query 'sort_by(Versions[?IsDefaultVersion==`false`], &CreateDate)[0].VersionId' \
+        --output text)"
+      aws iam delete-policy-version --policy-arn "$policy_arn" --version-id "$oldest_version"
+    fi
+
+    aws iam create-policy-version \
+      --policy-arn "$policy_arn" \
+      --policy-document "file://${policy_files[$policy_name]}" \
+      --set-as-default >/dev/null
+    echo "Updated $policy_name."
+  done
+  exit 0
+fi
 
 for policy_name in "${!policy_files[@]}"; do
   policy_arn="arn:aws:iam::$account_id:policy/$policy_name"

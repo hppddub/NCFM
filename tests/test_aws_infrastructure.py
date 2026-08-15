@@ -97,3 +97,9 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
     control_encoded = json.dumps(control)
     assert "stack/ft-ncfm-gpu/*" in control_encoded
     assert "iam:PermissionsBoundary" in control_encoded
+
+    operations_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-operations-policy.json"
+    operations = json.loads(operations_path.read_text(encoding="utf-8"))
+    operations_encoded = json.dumps(operations)
+    assert "cloudshell:PutCredentials" in operations_encoded
+    assert "cloudshell:*" not in operations_encoded
