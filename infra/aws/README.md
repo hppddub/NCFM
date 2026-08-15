@@ -14,3 +14,14 @@ validation before repeating it with `--apply`. This path does not enable AWS
 Organizations or IAM Identity Center. The deployment user is limited to the
 `ft-ncfm-gpu` stack and `g6.xlarge`; workload roles must carry the checked-in
 permissions boundary.
+
+Before enabling billable compute, run the repeatable least-privilege audit as an
+administrator and the exact EC2 authorization check as the deployer:
+
+```bash
+bash infra/aws/cloudshell/audit_deployer.sh us-east-2 797273592302
+bash infra/aws/cloudshell/dry_run_launch.sh us-east-2 ft-ncfm-gpu
+```
+
+The second command always includes EC2's `--dry-run` flag. A successful result is
+`DryRunOperation`; it does not create an instance.

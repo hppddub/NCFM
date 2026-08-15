@@ -88,6 +88,37 @@ def test_preflight_uses_json_for_paginated_quota_query() -> None:
     assert 'quota_pass="false"' in script
 
 
+def test_launch_dry_run_cannot_create_compute() -> None:
+    script = (
+        REPOSITORY_ROOT / "infra/aws/cloudshell/dry_run_launch.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "--dry-run" in script
+    assert 'instance_type" != "g6.xlarge' in script
+    assert "LaunchInstance=false" in script
+    assert "root_volume_gib > 200" in script
+    assert "HttpTokens=required" in script
+    assert "DryRunOperation" in script
+
+
+def test_deployer_audit_covers_allow_and_deny_paths() -> None:
+    script = (
+        REPOSITORY_ROOT / "infra/aws/cloudshell/audit_deployer.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "simulate-principal-policy" in script
+    assert "aws:TokenIssueTime" in script
+    assert "exactly three scoped managed policies" in script
+    assert "no long-lived IAM access keys" in script
+    assert "one MFA device is assigned" in script
+    assert "launch tagged g6.xlarge instance leg" in script
+    assert "reject expensive p4d instance leg" in script
+    assert "launch encrypted 200-GiB volume leg" in script
+    assert "reject 201-GiB volume leg" in script
+    assert "authorize public DLAMI snapshot leg" in script
+    assert "reject an unrelated CloudFormation stack" in script
+
+
 def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
     policy_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-resources-policy.json"
     policy = json.loads(policy_path.read_text(encoding="utf-8"))

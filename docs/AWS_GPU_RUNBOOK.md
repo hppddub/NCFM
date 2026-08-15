@@ -131,6 +131,15 @@ adds to supported resources. Subnet, route-table, and security-group creation is
 also restricted to the stack's already tagged project VPC.
 Review the stack in CloudFormation before proceeding.
 
+Then validate the exact launch request without creating or billing an instance:
+
+```bash
+bash infra/aws/cloudshell/dry_run_launch.sh us-east-2 ft-ncfm-gpu
+```
+
+The expected result is `DRY RUN PASSED` together with AWS's `DryRunOperation`
+authorization signal. Do not enable compute if this check fails.
+
 ## 6. Launch only after the price and quota check
 
 The deployment script refuses billable compute unless the task-specific approval
