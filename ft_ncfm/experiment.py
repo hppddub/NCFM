@@ -7,6 +7,7 @@ import copy
 import importlib.metadata
 import json
 import math
+import os
 import platform
 import subprocess
 import time
@@ -37,10 +38,54 @@ def policy_loss(model: nn.Module, batch: dict[str, Tensor]) -> Tensor:
     return F.mse_loss(prediction, batch["action"])
 
 
-def set_seed(seed: int) -> None:
+def set_seed(
+    seed: int,
+    *,
+    deterministic: bool = False,
+    deterministic_warn_only: bool = False,
+) -> None:
+    if deterministic:
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.use_deterministic_algorithms(True, warn_only=deterministic_warn_only)
+        if torch.backends.cudnn.is_available():
+            torch.backends.cudnn.benchmark = False
+            torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def cuda_metadata(device: torch.device) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "available": torch.cuda.is_available(),
+        "torch_cuda_version": torch.version.cuda,
+        "cudnn_version": torch.backends.cudnn.version(),
+    }
+    if device.type != "cuda" or not torch.cuda.is_available():
+        return metadata
+
+    index = device.index if device.index is not None else torch.cuda.current_device()
+    properties = torch.cuda.get_device_properties(index)
+    metadata.update(
+        {
+            "device_count": torch.cuda.device_count(),
+            "device_index": index,
+            "device_name": properties.name,
+            "compute_capability": f"{properties.major}.{properties.minor}",
+            "total_memory_bytes": properties.total_memory,
+            "peak_allocated_memory_bytes": torch.cuda.max_memory_allocated(index),
+            "peak_reserved_memory_bytes": torch.cuda.max_memory_reserved(index),
+        }
+    )
+    try:
+        metadata["driver_version"] = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).splitlines()[0]
+    except (OSError, subprocess.CalledProcessError, IndexError):
+        metadata["driver_version"] = None
+    return metadata
 
 
 def git_output(*args: str) -> str | None:
@@ -144,7 +189,16 @@ def run_seed(
     download: bool,
     max_samples: int | None,
 ) -> dict[str, Any]:
-    set_seed(seed)
+    runtime_config = config.get("runtime", {})
+    deterministic = bool(runtime_config.get("deterministic", False))
+    deterministic_warn_only = bool(runtime_config.get("deterministic_warn_only", False))
+    set_seed(
+        seed,
+        deterministic=deterministic,
+        deterministic_warn_only=deterministic_warn_only,
+    )
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
     start = time.perf_counter()
     started_at = datetime.now(UTC).isoformat()
     seed_dir = output_root / f"seed_{seed}"
@@ -217,7 +271,11 @@ def run_seed(
     variant_summaries: dict[str, Any] = {}
     coresets: dict[str, Tensor] = {}
     for variant, weights in (("uniform", None), ("ft_ncfm", probabilities)):
-        set_seed(seed + 10_000)
+        set_seed(
+            seed + 10_000,
+            deterministic=deterministic,
+            deterministic_warn_only=deterministic_warn_only,
+        )
         distiller = WeightedNCFMDistiller(
             real_features,
             weights,
@@ -271,6 +329,13 @@ def run_seed(
         "source_train_samples": len(train_dataset),
         "validation_samples": len(validation_dataset),
         "synthetic_samples": synthetic_count,
+        "declared_source_fraction_of_corpus": float(data_config["train_ratio"]),
+        "declared_synthetic_fraction_of_source": float(distillation_config["coreset_ratio"]),
+        "declared_synthetic_fraction_of_corpus": round(
+            float(data_config["train_ratio"]) * float(distillation_config["coreset_ratio"]),
+            12,
+        ),
+        "debug_max_samples": max_samples,
         "elite_samples": int(contrastive_result.elite_indices.numel()),
         "variants": variant_summaries,
         "elapsed_seconds": elapsed,
@@ -285,8 +350,25 @@ def run_seed(
         "config_sha256": config_hash(config),
         "seed": seed,
         "device": str(device),
+        "deterministic_algorithms": deterministic,
+        "deterministic_warn_only": deterministic_warn_only,
+        "runtime_overrides": {"download": download, "max_samples": max_samples},
         "platform": platform.platform(),
         "python": platform.python_version(),
+        "cuda": cuda_metadata(device),
+        "aws": {
+            "ami_id": os.getenv("FT_NCFM_AWS_AMI_ID"),
+            "region": os.getenv("FT_NCFM_AWS_REGION"),
+            "availability_zone": os.getenv("FT_NCFM_AWS_AVAILABILITY_ZONE"),
+            "instance_id": os.getenv("FT_NCFM_AWS_INSTANCE_ID"),
+            "instance_type": os.getenv("FT_NCFM_AWS_INSTANCE_TYPE"),
+            "max_runtime_minutes": os.getenv("FT_NCFM_AWS_MAX_RUNTIME_MINUTES"),
+            "stack_name": os.getenv("FT_NCFM_AWS_STACK_NAME"),
+        },
+        "container": {
+            "image": os.getenv("FT_NCFM_CONTAINER_IMAGE"),
+            "base_image_digest": os.getenv("FT_NCFM_BASE_IMAGE_DIGEST"),
+        },
         "packages": {
             "torch": package_version("torch"),
             "torchvision": package_version("torchvision"),
@@ -311,12 +393,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Debug-only cap after ratio selection; never use for reported results",
     )
     parser.add_argument("--seed", type=int, default=None, help="Run one seed instead of all")
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Override experiment.output_dir while retaining it in the run manifest",
+    )
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
     config = copy.deepcopy(load_config(args.config))
+    if args.output_dir is not None:
+        config["experiment"]["output_dir"] = args.output_dir
     seeds = [args.seed] if args.seed is not None else list(config["experiment"]["seeds"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     output_root = Path(config["experiment"]["output_dir"])

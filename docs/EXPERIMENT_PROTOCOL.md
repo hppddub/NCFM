@@ -43,3 +43,11 @@ For the smoke test, let `g_t` be generator CF loss. A run passes if all losses a
 finite and the median of the last 10% of steps is below the median of the first
 10%. Benchmark conclusions require downstream success metrics; convergence alone
 is not evidence that the paper's performance claims were reproduced.
+
+## Ratio accounting
+
+`data.train_ratio` is the fraction of the original real corpus supplied to the
+distiller. `distillation.coreset_ratio` is the synthetic fraction of that supplied
+source. Their product is the synthetic fraction of the original corpus and is
+recorded in every summary. The quick nested smoke uses `0.05 * 0.05 = 0.0025`;
+the paper-style 5% proxy uses `1.0 * 0.05 = 0.05`.

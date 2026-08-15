@@ -103,3 +103,9 @@ The paper used one NVIDIA A100 80GB and reports a 24 GPU-hour FT plus NCFM
 preprocessing cost on LIBERO. The current Windows workspace reports no NVIDIA GPU.
 CPU execution is appropriate for unit tests and the public-data proxy, not for a
 credible benchmark-scale performance comparison.
+
+The AWS path is documented in `AWS_GPU_RUNBOOK.md`. Its first gate uses a
+single-GPU `g6.xlarge`; P4/P5 compute is not launched until live price, Region
+offering, family quota, budget, and the explicit billable flag all pass. The
+independent pre-cloud review and remaining paper-fidelity blockers are recorded in
+`AUDIT_2026-08-15.md`.

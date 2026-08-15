@@ -8,7 +8,9 @@
 
 Start with the [replication roadmap](docs/REPLICATION_ROADMAP.md), then see the
 [paper-to-code map](docs/PAPER_TO_CODE.md) and
-[experiment protocol](docs/EXPERIMENT_PROTOCOL.md). The first executable gate is
+[experiment protocol](docs/EXPERIMENT_PROTOCOL.md). For cloud execution, use the
+[AWS GPU runbook](docs/AWS_GPU_RUNBOOK.md); the initial independent review is in
+[the 15 August audit](docs/AUDIT_2026-08-15.md). The first executable gate is
 a 5% MNIST-based VLA-shaped proxy that tests LiSSA influence scoring, visual-only
 counterexamples, influence-weighted characteristic-function matching, and min-max
 loss convergence. It is a plumbing test, not a robotics benchmark result.
@@ -18,8 +20,12 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-ft.txt
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe -m ft_ncfm.experiment `
-  --config configs/ft_ncfm/minivla_5pct.yaml
+  --config configs/ft_ncfm/minivla_nested_5pct_smoke.yaml
 ```
+
+The nested smoke config uses 5% of MNIST and synthesizes 5% of that source
+(0.25% of the full corpus). The corrected `minivla_5pct.yaml` uses the full
+source and synthesizes a true 5% coreset. Both remain feature-level proxies.
 
 Linux/CUDA users can build the checked-in container instead. Every experiment
 writes a manifest, raw metric stream, influence artifact, coreset, and summary

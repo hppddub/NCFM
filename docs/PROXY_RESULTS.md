@@ -1,10 +1,17 @@
-# Public-Data Proxy Results
+# Nested-Fraction Public-Data Smoke Results
 
 Run date: 15 August 2026 (America/Toronto)
 
 These results validate the FT-NCFM implementation path and adversarial-game
 convergence on CPU. They do **not** reproduce the CALVIN, Meta-World, or LIBERO
 success-rate findings in the paper.
+
+An independent audit identified that this historical run applied a 5% source
+fraction and then a 5% synthetic fraction. It is therefore a 0.25%-of-corpus
+nested smoke test, not a paper-comparable 5% coreset. The historical ratio
+structure is now explicit in `configs/ft_ncfm/minivla_nested_5pct_smoke.yaml`; the corrected
+`configs/ft_ncfm/minivla_5pct.yaml` uses the full source and produces 3,000
+synthetic feature proxies.
 
 ## Setup
 

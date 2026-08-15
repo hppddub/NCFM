@@ -1,6 +1,6 @@
 experiment:
-  name: mnist_minivla_true_5pct
-  output_dir: artifacts/minivla_true_5pct
+  name: mnist_minivla_nested_5pct_smoke
+  output_dir: artifacts/minivla_nested_5pct_smoke
   seeds: [42, 123, 1024]
 
 runtime:
@@ -10,8 +10,8 @@ runtime:
 data:
   dataset: mnist
   cache_dir: data_cache
-  # Use the full real corpus so the synthetic set is truly 5% of it.
-  train_ratio: 1.0
+  # Audit note: this selects 5% of the full corpus before distillation.
+  train_ratio: 0.05
   validation_size: 512
   stratified: true
 
@@ -37,7 +37,7 @@ influence:
   epsilon: 1.0e-8
 
 distillation:
-  # 5% of 60,000 = 3,000 synthetic feature proxies.
+  # 5% of the already reduced source = 0.25% of the full MNIST corpus.
   coreset_ratio: 0.05
   batch_size: 64
   num_frequencies: 64

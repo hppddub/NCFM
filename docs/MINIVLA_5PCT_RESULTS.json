@@ -1,9 +1,10 @@
 {
-  "scope": "algorithmic_proxy_not_vla_benchmark",
+  "scope": "nested_5pct_of_5pct_algorithmic_smoke_not_vla_benchmark",
   "source_dataset": "MNIST",
   "source_samples": 3000,
   "source_ratio": 0.05,
   "synthetic_samples": 150,
+  "synthetic_ratio_of_full_corpus": 0.0025,
   "elite_samples": 150,
   "seeds": [42, 123, 1024],
   "uniform": {
