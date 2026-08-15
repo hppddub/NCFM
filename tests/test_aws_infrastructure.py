@@ -44,6 +44,7 @@ def test_cloudformation_defaults_to_no_compute_and_no_inbound_access() -> None:
     template = yaml.load(template_path.read_text(encoding="utf-8"), Loader=CloudFormationLoader)
 
     assert template["Parameters"]["LaunchInstance"]["Default"] == "false"
+    assert template["Parameters"]["RootVolumeGiB"]["MaxValue"] == 200
     resources = template["Resources"]
     security_group = resources["GpuSecurityGroup"]["Properties"]
     assert "SecurityGroupIngress" not in security_group
@@ -54,6 +55,10 @@ def test_cloudformation_defaults_to_no_compute_and_no_inbound_access() -> None:
     assert instance["Properties"]["InstanceInitiatedShutdownBehavior"] == "stop"
     assert resources["GuardFunction"]["Condition"] == "LaunchCompute"
     assert resources["GuardSchedule"]["Condition"] == "LaunchCompute"
+    assert resources["GpuInstance"]["Properties"]["PropagateTagsToVolumeOnCreation"] is True
+    assert resources["GuardFunctionRole"]["Properties"]["Tags"] == [
+        {"Key": "Project", "Value": "ProjectName"}
+    ]
     assert resources["ArtifactBucket"]["DeletionPolicy"] == "RetainExceptOnCreate"
     assert (
         resources["InstanceRole"]["Properties"]["PermissionsBoundary"]
@@ -153,6 +158,39 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
         "aws:cloudformation:stack-id",
         "aws:cloudformation:logical-id",
     }
+    run_statements = [
+        statement for statement in policy["Statement"] if statement["Action"] == "ec2:RunInstances"
+    ]
+    run_resources = {
+        resource
+        for statement in run_statements
+        for resource in (
+            statement["Resource"]
+            if isinstance(statement["Resource"], list)
+            else [statement["Resource"]]
+        )
+    }
+    assert run_resources == {
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:instance/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:volume/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:network-interface/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:subnet/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:security-group/*",
+        "arn:aws:ec2:@@REGION@@::image/ami-*",
+        "arn:aws:ec2:@@REGION@@::snapshot/*",
+    }
+    volume_launch = statements["CreateOnlyEncryptedLowCostGpuVolume"]
+    assert volume_launch["Condition"]["Bool"]["ec2:Encrypted"] == "true"
+    assert volume_launch["Condition"]["NumericLessThanEquals"]["ec2:VolumeSize"] == "200"
+    project_network = statements["UseOnlyProjectGpuNetwork"]
+    assert (
+        project_network["Condition"]["StringEquals"]["ec2:ResourceTag/Project"]
+        == "ft-ncfm"
+    )
+    assert all(
+        statement["Condition"]["StringEquals"]["ec2:InstanceType"] == "g6.xlarge"
+        for statement in run_statements
+    )
     assert "ec2:ModifySubnetAttribute" in statements["ManageTaggedNetworkResources"]["Action"]
     assert "s3:DeleteBucket" in statements["ManageArtifactBucket"]["Action"]
 
@@ -173,6 +211,12 @@ def test_deployer_policy_is_low_cost_and_stack_scoped() -> None:
     assert profile_discovery["Resource"].endswith(
         ":instance-profile/ft-ncfm-instance-profile"
     )
+    role_management = control_statements["ManageBoundedWorkloadRoles"]["Action"]
+    assert "iam:ListRoleTags" in role_management
+    assert "iam:ListInstanceProfilesForRole" in role_management
+    profile_management = control_statements["ManageOnlyProjectInstanceProfile"]["Action"]
+    assert "iam:TagInstanceProfile" not in profile_management
+    assert "iam:UntagInstanceProfile" not in profile_management
 
     operations_path = REPOSITORY_ROOT / "infra/aws/iam/deployer-operations-policy.json"
     operations = json.loads(operations_path.read_text(encoding="utf-8"))

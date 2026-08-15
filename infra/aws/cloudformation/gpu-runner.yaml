@@ -34,7 +34,7 @@ Parameters:
     Type: Number
     Default: 200
     MinValue: 100
-    MaxValue: 2048
+    MaxValue: 200
   RepositoryUrl:
     Type: String
     Default: https://github.com/hppddub/NCFM.git
@@ -215,6 +215,7 @@ Resources:
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref InstanceProfile
       InstanceInitiatedShutdownBehavior: stop
+      PropagateTagsToVolumeOnCreation: true
       MetadataOptions:
         HttpEndpoint: enabled
         HttpTokens: required
@@ -321,6 +322,9 @@ Resources:
               - Effect: Allow
                 Action: ec2:StopInstances
                 Resource: !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${GpuInstance}"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
 
   GuardFunction:
     Type: AWS::Lambda::Function

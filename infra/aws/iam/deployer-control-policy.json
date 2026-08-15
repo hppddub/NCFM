@@ -63,6 +63,8 @@
         "iam:DeleteRolePolicy",
         "iam:ListRolePolicies",
         "iam:ListAttachedRolePolicies",
+        "iam:ListRoleTags",
+        "iam:ListInstanceProfilesForRole",
         "iam:TagRole",
         "iam:UntagRole"
       ],
@@ -122,9 +124,7 @@
         "iam:GetInstanceProfile",
         "iam:DeleteInstanceProfile",
         "iam:AddRoleToInstanceProfile",
-        "iam:RemoveRoleFromInstanceProfile",
-        "iam:TagInstanceProfile",
-        "iam:UntagInstanceProfile"
+        "iam:RemoveRoleFromInstanceProfile"
       ],
       "Resource": "arn:aws:iam::@@ACCOUNT_ID@@:instance-profile/ft-ncfm/ft-ncfm-instance-profile"
     }

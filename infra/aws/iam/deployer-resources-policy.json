@@ -160,14 +160,10 @@
       }
     },
     {
-      "Sid": "RunOnlyLowCostTaggedGPU",
+      "Sid": "RunOnlyTaggedLowCostInstance",
       "Effect": "Allow",
       "Action": "ec2:RunInstances",
-      "Resource": [
-        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:instance/*",
-        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:volume/*",
-        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:network-interface/*"
-      ],
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:instance/*",
       "Condition": {
         "StringEquals": {
           "aws:RequestTag/Project": "ft-ncfm",
@@ -176,13 +172,55 @@
       }
     },
     {
-      "Sid": "UseOnlyProjectNetworkAndApprovedImage",
+      "Sid": "CreateOnlyEncryptedLowCostGpuVolume",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:volume/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:InstanceType": "g6.xlarge"
+        },
+        "Bool": {
+          "ec2:Encrypted": "true"
+        },
+        "NumericLessThanEquals": {
+          "ec2:VolumeSize": "200"
+        }
+      }
+    },
+    {
+      "Sid": "CreateOnlyLowCostGpuNetworkInterface",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:network-interface/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:InstanceType": "g6.xlarge"
+        }
+      }
+    },
+    {
+      "Sid": "UseOnlyProjectGpuNetwork",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": [
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:subnet/*",
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:security-group/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "ec2:InstanceType": "g6.xlarge",
+          "ec2:ResourceTag/Project": "ft-ncfm"
+        }
+      }
+    },
+    {
+      "Sid": "UseOnlyLowCostGpuImageAndSnapshot",
       "Effect": "Allow",
       "Action": "ec2:RunInstances",
       "Resource": [
         "arn:aws:ec2:@@REGION@@::image/ami-*",
-        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:subnet/*",
-        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:security-group/*"
+        "arn:aws:ec2:@@REGION@@::snapshot/*"
       ],
       "Condition": {
         "StringEquals": {

@@ -50,6 +50,10 @@ launches to tagged `g6.xlarge` instances in the chosen Region, and require the
 checked-in workload permissions boundary on every role it can create. Read-only
 pre-creation discovery is limited to the exact two role names and one instance
 profile that this stack declares; mutations remain path- and boundary-scoped.
+The launch policy separately checks every EC2 resource evaluated by
+`RunInstances`: the instance and VPC network must be project-tagged, the root
+volume must be encrypted and at most 200 GiB, and every resource is restricted
+to `g6.xlarge` launch context.
 The operations policy grants only the five CloudShell actions needed to launch
 the browser shell and forward the signed-in user's temporary credentials; it
 does not grant `cloudshell:*`.
