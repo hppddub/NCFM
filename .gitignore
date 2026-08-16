@@ -11,5 +11,6 @@ __pycache__/
 artifacts/
 data_cache/
 .tools/
+.test-deps/
 external/
 *.egg-info/

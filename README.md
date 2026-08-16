@@ -16,6 +16,12 @@ a 5% MNIST-based VLA-shaped proxy that tests LiSSA influence scoring, visual-onl
 counterexamples, influence-weighted characteristic-function matching, and min-max
 loss convergence. It is a plumbing test, not a robotics benchmark result.
 
+Current restart point: the [15 August handover](docs/HANDOVER_2026-08-15.md)
+records the completed factorial ablation, pinned one-task LIBERO protocol,
+evidence checksums, stopped Colab state, and exact resume sequence. The genuine
+LIBERO gate uses
+[`FT_NCFM_LIBERO_Colab_A100.ipynb`](notebooks/FT_NCFM_LIBERO_Colab_A100.ipynb).
+
 The three-seed true-5% proxy run is complete on an A100-SXM4-80GB. All variants
 converged, but FT-NCFM had lower final CF loss in only one of three seeds. See the
 [A100 proof-of-concept report](docs/A100_POC_RESULTS_2026-08-15.md) for the exact
