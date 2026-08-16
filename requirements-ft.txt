@@ -1,0 +1,2 @@
+# FT-NCFM reproduction environment. Keep the upstream requirements.txt intact.
+-e .[dev,plots]

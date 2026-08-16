@@ -1,4 +1,49 @@
-# [CVPR2025] Dataset Distillation with Neural Characteristic Function: A Minmax Perspective 
+# [CVPR2025] Dataset Distillation with Neural Characteristic Function: A Minmax Perspective
+
+> **Replication branch:** This branch adds an unofficial, auditable reproduction
+> scaffold for [FT-NCFM (arXiv:2511.16233)](https://arxiv.org/abs/2511.16233) on
+> top of the official NCFM code. It is not code released by either paper's authors.
+
+## FT-NCFM reproduction
+
+Start with the [replication roadmap](docs/REPLICATION_ROADMAP.md), then see the
+[paper-to-code map](docs/PAPER_TO_CODE.md) and
+[experiment protocol](docs/EXPERIMENT_PROTOCOL.md). For GPU execution, use the
+[Colab A100 runbook](docs/COLAB_A100_RUNBOOK.md). The quota-gated alternative is
+the [AWS GPU runbook](docs/AWS_GPU_RUNBOOK.md); the initial independent review is in
+[the 15 August audit](docs/AUDIT_2026-08-15.md). The first executable gate is
+a 5% MNIST-based VLA-shaped proxy that tests LiSSA influence scoring, visual-only
+counterexamples, influence-weighted characteristic-function matching, and min-max
+loss convergence. It is a plumbing test, not a robotics benchmark result.
+
+Current restart point: the [15 August handover](docs/HANDOVER_2026-08-15.md)
+records the completed factorial ablation, pinned one-task LIBERO protocol,
+evidence checksums, stopped Colab state, and exact resume sequence. The genuine
+LIBERO gate uses
+[`FT_NCFM_LIBERO_Colab_A100.ipynb`](notebooks/FT_NCFM_LIBERO_Colab_A100.ipynb).
+
+The three-seed true-5% proxy run is complete on an A100-SXM4-80GB. All variants
+converged, but FT-NCFM had lower final CF loss in only one of three seeds. See the
+[A100 proof-of-concept report](docs/A100_POC_RESULTS_2026-08-15.md) for the exact
+environment, per-seed results, evidence checksum, and comparison boundary. The
+[final independent audit](docs/FINAL_AUDIT_2026-08-15.md) verifies the evidence
+and records the remaining scientific blockers.
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-ft.txt
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ft_ncfm.experiment `
+  --config configs/ft_ncfm/minivla_nested_5pct_smoke.yaml
+```
+
+The nested smoke config uses 5% of MNIST and synthesizes 5% of that source
+(0.25% of the full corpus). The corrected `minivla_5pct.yaml` uses the full
+source and synthesizes a true 5% coreset. Both remain feature-level proxies.
+
+Linux/CUDA users can build the checked-in container instead. Every experiment
+writes a manifest, raw metric stream, influence artifact, coreset, and summary
+under the ignored `artifacts/` directory.
 
 Official PyTorch implementation of the paper ["Dataset Distillation with Neural Characteristic Function"](https://arxiv.org/abs/2502.20653) (NCFM) in CVPR 2025.
 
@@ -89,4 +134,3 @@ If you find NCFM useful for your research and applications, please cite using th
 
 ## Acknowledgement
 We sincerely thank the developers of the following projects for their valuable contributions and inspiration: [MTT](https://github.com/GeorgeCazenavette/mtt-distillation), [DATM](https://github.com/NUS-HPC-AI-Lab/DATM), [DC/DM](https://github.com/VICO-UoE/DatasetCondensation), [IDC](https://github.com/snu-mllab/Efficient-Dataset-Condensation), [SRe2L](https://github.com/VILA-Lab/SRe2L), [RDED](https://github.com/LINs-lab/RDED), [DANCE](https://github.com/Hansong-Zhang/DANCE). We draw inspiration from these fantastic projects!
-

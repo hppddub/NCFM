@@ -4,3 +4,13 @@ dataset/
 *.pyc
 pretrained_models
 dataset
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+artifacts/
+data_cache/
+.tools/
+.test-deps/
+external/
+*.egg-info/

@@ -1,0 +1,9 @@
+.git
+.venv
+artifacts
+data_cache
+dataset
+pretrained_models
+results
+__pycache__
+*.pyc

@@ -1,0 +1,399 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Cost-gated FT-NCFM GPU runner. The default creates supporting resources only;
+  LaunchInstance must be explicitly changed to true to start billable compute.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ft-ncfm
+    AllowedPattern: "[a-zA-Z0-9-]+"
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: An AZ returned by the preflight script for the selected instance type.
+  InstanceType:
+    Type: String
+    Default: g6.xlarge
+    AllowedValues:
+      - g6.xlarge
+      - g6e.xlarge
+      - p4d.24xlarge
+      - p4de.24xlarge
+      - p5.4xlarge
+  LaunchInstance:
+    Type: String
+    Default: "false"
+    AllowedValues: ["false", "true"]
+    Description: Explicit billable-compute gate. Keep false for the first deployment.
+  MaxRuntimeMinutes:
+    Type: Number
+    Default: 180
+    MinValue: 30
+    MaxValue: 1440
+  RootVolumeGiB:
+    Type: Number
+    Default: 200
+    MinValue: 100
+    MaxValue: 200
+  RepositoryUrl:
+    Type: String
+    Default: https://github.com/hppddub/NCFM.git
+    AllowedPattern: "https://github\\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+(?:\\.git)?"
+  RepositoryRevision:
+    Type: String
+    Default: codex/ft-ncfm-replication
+    AllowedPattern: "[a-zA-Z0-9._/-]+"
+  LatestDlamiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id
+  WorkloadPermissionsBoundaryArn:
+    Type: String
+    AllowedPattern: "arn:aws:iam::[0-9]{12}:policy/FTNCFMWorkloadBoundary"
+    Description: Required boundary that prevents workload-role privilege escalation.
+
+Conditions:
+  LaunchCompute: !Equals [!Ref LaunchInstance, "true"]
+
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: RetainExceptOnCreate
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "ft-ncfm-artifacts-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt ArtifactBucket.Arn
+              - !Sub "${ArtifactBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.77.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: 10.77.1.0/24
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+
+  SubnetRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref PublicSubnet
+
+  GpuSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: No inbound access; management uses Systems Manager Session Manager.
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+          Description: Outbound package, GitHub, SSM, and S3 access
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-instance-role"
+      Path: /ft-ncfm/
+      PermissionsBoundary: !Ref WorkloadPermissionsBoundaryArn
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      Policies:
+        - PolicyName: ArtifactBucketAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt ArtifactBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${ArtifactBucket.Arn}/*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${ProjectName}-instance-profile"
+      Path: /ft-ncfm/
+      Roles: [!Ref InstanceRole]
+
+  GpuInstance:
+    Type: AWS::EC2::Instance
+    Condition: LaunchCompute
+    DependsOn: InternetRoute
+    Properties:
+      ImageId: !Ref LatestDlamiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      InstanceInitiatedShutdownBehavior: stop
+      PropagateTagsToVolumeOnCreation: true
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          DeviceIndex: "0"
+          GroupSet: [!Ref GpuSecurityGroup]
+          SubnetId: !Ref PublicSubnet
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            Encrypted: true
+            VolumeSize: !Ref RootVolumeGiB
+            VolumeType: gp3
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-gpu-runner"
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: FTNCFMMaxRuntimeMinutes
+          Value: !Ref MaxRuntimeMinutes
+      UserData:
+        Fn::Base64: !Sub |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec > >(tee /var/log/ft-ncfm-bootstrap.log | logger -t ft-ncfm -s 2>/dev/console) 2>&1
+
+          cat >/etc/systemd/system/ft-ncfm-autostop.service <<'EOF'
+          [Unit]
+          Description=Stop the FT-NCFM EC2 runner after its runtime guard expires
+          [Service]
+          Type=oneshot
+          ExecStart=/sbin/shutdown -h now
+          EOF
+
+          cat >/etc/systemd/system/ft-ncfm-autostop.timer <<'EOF'
+          [Unit]
+          Description=FT-NCFM EC2 automatic stop timer
+          [Timer]
+          OnBootSec=${MaxRuntimeMinutes}min
+          Unit=ft-ncfm-autostop.service
+          [Install]
+          WantedBy=timers.target
+          EOF
+
+          systemctl daemon-reload
+          systemctl enable --now ft-ncfm-autostop.timer
+          systemctl enable --now amazon-ssm-agent || true
+
+          install -d -o ubuntu -g ubuntu /opt/ft-ncfm
+          if [ ! -d /opt/ft-ncfm/repository/.git ]; then
+            runuser -u ubuntu -- git clone --branch '${RepositoryRevision}' --single-branch '${RepositoryUrl}' /opt/ft-ncfm/repository
+          fi
+          cd /opt/ft-ncfm/repository
+          docker pull pytorch/pytorch:2.5.0-cuda12.4-cudnn9-runtime
+          docker build --tag ft-ncfm-replication:latest .
+          usermod -aG docker ubuntu
+
+          token=$(curl -sS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+          instance_id=$(curl -sS -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/instance-id)
+          ami_id=$(curl -sS -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/ami-id)
+
+          cat >/opt/ft-ncfm/aws-runtime.env <<EOF
+          FT_NCFM_AWS_AMI_ID=$ami_id
+          FT_NCFM_AWS_REGION=${AWS::Region}
+          FT_NCFM_AWS_AVAILABILITY_ZONE=${AvailabilityZone}
+          FT_NCFM_AWS_INSTANCE_ID=$instance_id
+          FT_NCFM_AWS_INSTANCE_TYPE=${InstanceType}
+          FT_NCFM_AWS_MAX_RUNTIME_MINUTES=${MaxRuntimeMinutes}
+          FT_NCFM_AWS_STACK_NAME=${AWS::StackName}
+          FT_NCFM_ARTIFACT_BUCKET=${ArtifactBucket}
+          FT_NCFM_CONTAINER_IMAGE=ft-ncfm-replication:latest
+          EOF
+          chmod 0644 /opt/ft-ncfm/aws-runtime.env
+          touch /opt/ft-ncfm/bootstrap-complete
+
+  GuardFunctionRole:
+    Type: AWS::IAM::Role
+    Condition: LaunchCompute
+    Properties:
+      RoleName: !Sub "${ProjectName}-guard-function-role"
+      Path: /ft-ncfm/
+      PermissionsBoundary: !Ref WorkloadPermissionsBoundaryArn
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: StopOnlyThisRunner
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ec2:DescribeInstances
+                Resource: "*"
+              - Effect: Allow
+                Action: ec2:StopInstances
+                Resource: !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${GpuInstance}"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  GuardFunction:
+    Type: AWS::Lambda::Function
+    Condition: LaunchCompute
+    Properties:
+      FunctionName: !Sub "${ProjectName}-runtime-guard"
+      Description: API-layer backstop that stops the GPU runner after MaxRuntimeMinutes.
+      Handler: index.handler
+      Runtime: python3.12
+      Timeout: 30
+      Role: !GetAtt GuardFunctionRole.Arn
+      Environment:
+        Variables:
+          INSTANCE_ID: !Ref GpuInstance
+          MAX_RUNTIME_MINUTES: !Ref MaxRuntimeMinutes
+      Code:
+        ZipFile: |
+          import datetime
+          import os
+          import boto3
+
+          ec2 = boto3.client("ec2")
+
+          def handler(event, context):
+              instance_id = os.environ["INSTANCE_ID"]
+              maximum = int(os.environ["MAX_RUNTIME_MINUTES"])
+              response = ec2.describe_instances(InstanceIds=[instance_id])
+              instance = response["Reservations"][0]["Instances"][0]
+              if instance["State"]["Name"] != "running":
+                  return {"state": instance["State"]["Name"]}
+              age = datetime.datetime.now(datetime.timezone.utc) - instance["LaunchTime"]
+              if age.total_seconds() >= maximum * 60:
+                  ec2.stop_instances(InstanceIds=[instance_id])
+                  return {"state": "stopping", "age_seconds": age.total_seconds()}
+              return {"state": "running", "age_seconds": age.total_seconds()}
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  GuardSchedule:
+    Type: AWS::Events::Rule
+    Condition: LaunchCompute
+    Properties:
+      Name: !Sub "${ProjectName}-runtime-guard"
+      Description: Check the FT-NCFM GPU runtime every five minutes.
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt GuardFunction.Arn
+          Id: GuardFunction
+
+  GuardInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: LaunchCompute
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GuardFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt GuardSchedule.Arn
+
+Outputs:
+  ArtifactBucketName:
+    Description: Retained result bucket. Empty and delete it manually when no longer needed.
+    Value: !Ref ArtifactBucket
+  LaunchGate:
+    Value: !Ref LaunchInstance
+  InstanceId:
+    Condition: LaunchCompute
+    Value: !Ref GpuInstance
+  SessionManagerUrl:
+    Condition: LaunchCompute
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${GpuInstance}?region=${AWS::Region}"

@@ -1,0 +1,90 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "UseAuthenticatedCloudShell",
+      "Effect": "Allow",
+      "Action": [
+        "cloudshell:CreateEnvironment",
+        "cloudshell:CreateSession",
+        "cloudshell:GetEnvironmentStatus",
+        "cloudshell:StartEnvironment",
+        "cloudshell:PutCredentials"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IdentityAndPriceRead",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "pricing:GetProducts"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadPublicDLAMIParameter",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters"
+      ],
+      "Resource": "arn:aws:ssm:@@REGION@@::parameter/aws/service/deeplearning/*"
+    },
+    {
+      "Sid": "ReadAndRequestOnlyGFamilyQuota",
+      "Effect": "Allow",
+      "Action": [
+        "servicequotas:GetServiceQuota",
+        "servicequotas:GetRequestedServiceQuotaChange",
+        "servicequotas:ListRequestedServiceQuotaChangeHistoryByQuota",
+        "servicequotas:RequestServiceQuotaIncrease"
+      ],
+      "Resource": "arn:aws:servicequotas:@@REGION@@:@@ACCOUNT_ID@@:ec2/@@G_QUOTA_CODE@@"
+    },
+    {
+      "Sid": "ListEC2Quotas",
+      "Effect": "Allow",
+      "Action": [
+        "servicequotas:ListServiceQuotas",
+        "servicequotas:ListRequestedServiceQuotaChangeHistory"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "StartSessionOnlyOnProjectInstance",
+      "Effect": "Allow",
+      "Action": "ssm:StartSession",
+      "Resource": [
+        "arn:aws:ec2:@@REGION@@:@@ACCOUNT_ID@@:instance/*",
+        "arn:aws:ssm:@@REGION@@::document/SSM-SessionManagerRunShell"
+      ],
+      "Condition": {
+        "StringEqualsIfExists": {
+          "ssm:resourceTag/Project": "ft-ncfm"
+        }
+      }
+    },
+    {
+      "Sid": "ManageOwnSessions",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:ResumeSession",
+        "ssm:TerminateSession"
+      ],
+      "Resource": "arn:aws:ssm:@@REGION@@:@@ACCOUNT_ID@@:session/${aws:username}-*"
+    },
+    {
+      "Sid": "SessionAndLogRead",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:DescribeInstanceInformation",
+        "ssm:DescribeSessions",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
