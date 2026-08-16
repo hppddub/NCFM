@@ -70,6 +70,15 @@ def test_colab_notebook_is_clean_and_expensive_runs_are_opt_in() -> None:
     assert "--max-samples\", \"1000" in sources
 
 
+def test_colab_runner_exposes_proxy_and_ablation_entry_modules() -> None:
+    runner = (REPOSITORY_ROOT / "infra/colab/run_experiment.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"ft_ncfm.experiment"' in runner
+    assert '"ft_ncfm.ablation"' in runner
+    assert '"ft_ncfm.libero_experiment"' in runner
+
+
 def test_colab_runner_persists_only_a_complete_seed(tmp_path: Path) -> None:
     scratch_seed = tmp_path / "scratch" / "seed_42"
     persistent_seed = tmp_path / "drive" / "seed_42"

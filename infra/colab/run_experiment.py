@@ -436,6 +436,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Unique output name, for example nested-smoke or true-5pct",
     )
     parser.add_argument("--seeds", nargs="+", type=int, default=None)
+    parser.add_argument(
+        "--entry-module",
+        choices=("ft_ncfm.experiment", "ft_ncfm.ablation", "ft_ncfm.libero_experiment"),
+        default="ft_ncfm.experiment",
+        help="Experiment module executed once per seed",
+    )
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--require-gpu", action="store_true")
@@ -472,6 +478,7 @@ def main() -> int:
         "git_dirty": bool(git_output(repository, "status", "--porcelain")),
         "config": str(config_path.relative_to(repository)),
         "run_name": args.run_name,
+        "entry_module": args.entry_module,
         "max_samples": args.max_samples,
         "offline": args.offline,
         "python": platform.python_version(),
@@ -514,6 +521,7 @@ def main() -> int:
     environment = os.environ.copy()
     environment["FT_NCFM_EXECUTION_PROVIDER"] = "colab"
     environment["FT_NCFM_RUNTIME_ID"] = session_id
+    environment["FT_NCFM_ENTRY_MODULE"] = args.entry_module
 
     try:
         update_aggregate(persistent_output, declared_seeds, run_identity)
@@ -531,7 +539,7 @@ def main() -> int:
             command = [
                 sys.executable,
                 "-m",
-                "ft_ncfm.experiment",
+                args.entry_module,
                 "--config",
                 str(config_path),
                 "--seed",

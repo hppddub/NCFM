@@ -1,6 +1,6 @@
 experiment:
-  name: mnist_minivla_nested_5pct_smoke
-  output_dir: artifacts/minivla_nested_5pct_smoke
+  name: mnist_minivla_factorial_ablation
+  output_dir: artifacts/minivla_factorial_ablation
   seeds: [42, 123, 1024]
 
 runtime:
@@ -10,9 +10,10 @@ runtime:
 data:
   dataset: mnist
   cache_dir: data_cache
-  # Audit note: this selects 5% of the full corpus before distillation.
   train_ratio: 0.05
-  validation_size: 512
+  reference_size: 512
+  selection_size: 1024
+  test_size: 2048
   stratified: true
 
 guide:
@@ -24,8 +25,6 @@ guide:
   weight_decay: 0.01
 
 influence:
-  sign: paper
-  ranking: largest
   elite_ratio: 0.05
   reference_batch_size: 64
   lissa_depth: 50
@@ -34,17 +33,27 @@ influence:
   lissa_repeats: 1
   hessian_batch_size: 32
   beta: 1.0
-  normalization: positive_shift
   epsilon: 1.0e-8
 
+ablation:
+  signs: [paper, gradient_alignment]
+  rankings: [largest, smallest]
+  normalizations: [positive_shift, clamp, softmax]
+
 distillation:
-  # 5% of the already reduced source = 0.25% of the full MNIST corpus.
   coreset_ratio: 0.05
   batch_size: 64
   num_frequencies: 64
   hidden_dim: 32
-  steps: 150
+  steps: 100
   discriminator_steps: 1
   generator_lr: 0.03
   discriminator_lr: 0.001
   convergence_window_ratio: 0.10
+
+downstream:
+  hidden_dim: 64
+  steps: 200
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.0001

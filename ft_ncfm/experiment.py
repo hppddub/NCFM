@@ -253,6 +253,7 @@ def run_seed(
         policy_loss,
         beta=float(influence_config["beta"]),
         elite_ratio=float(influence_config["elite_ratio"]),
+        ranking=str(influence_config.get("ranking", "largest")),
         normalization=str(influence_config["normalization"]),
         epsilon=float(influence_config["epsilon"]),
     )
@@ -359,6 +360,7 @@ def run_seed(
         "execution": {
             "provider": os.getenv("FT_NCFM_EXECUTION_PROVIDER", "local"),
             "runtime_id": os.getenv("FT_NCFM_RUNTIME_ID"),
+            "entry_module": os.getenv("FT_NCFM_ENTRY_MODULE", "ft_ncfm.experiment"),
         },
         "colab": {
             "release_tag": os.getenv("COLAB_RELEASE_TAG"),

@@ -71,6 +71,7 @@ class WeightedNCFMDistiller:
         discriminator_lr: float = 0.001,
         alpha: float = 0.5,
         beta: float = 0.5,
+        standardize_features: bool = False,
         device: torch.device | str = "cpu",
     ) -> None:
         if real_features.ndim != 2 or real_features.shape[0] < 2:
@@ -78,7 +79,17 @@ class WeightedNCFMDistiller:
         if synthetic_count <= 0:
             raise ValueError("synthetic_count must be positive")
         self.device = torch.device(device)
-        self.real_features = F.normalize(real_features.detach().to(self.device), dim=1)
+        raw_features = real_features.detach().to(self.device)
+        self.standardize_features = standardize_features
+        if standardize_features:
+            self.feature_mean = raw_features.mean(dim=0, keepdim=True)
+            self.feature_scale = raw_features.std(dim=0, keepdim=True).clamp_min(1e-4)
+            working_features = (raw_features - self.feature_mean) / self.feature_scale
+        else:
+            self.feature_mean = torch.zeros_like(raw_features[:1])
+            self.feature_scale = torch.ones_like(raw_features[:1])
+            working_features = raw_features
+        self.real_features = F.normalize(working_features, dim=1)
         if real_weights is None:
             weights = torch.full(
                 (real_features.shape[0],),
@@ -95,8 +106,11 @@ class WeightedNCFMDistiller:
         self.real_weights = weights
 
         feature_dim = real_features.shape[1]
-        center = self.real_features.mean(dim=0, keepdim=True)
-        scale = self.real_features.std(dim=0, keepdim=True).clamp_min(0.05)
+        initialization_source = (
+            working_features if standardize_features else self.real_features
+        )
+        center = initialization_source.mean(dim=0, keepdim=True)
+        scale = initialization_source.std(dim=0, keepdim=True).clamp_min(0.05)
         initial = center + torch.randn(synthetic_count, feature_dim, device=self.device) * scale
         self.synthetic_features = nn.Parameter(initial)
         self.frequency_net = FrequencyNet(feature_dim, num_frequencies, hidden_dim).to(self.device)
@@ -152,8 +166,13 @@ class WeightedNCFMDistiller:
             raise FloatingPointError("NCFM generator loss became non-finite")
         return trace
 
-    def coreset(self) -> Tensor:
-        return F.normalize(self.synthetic_features.detach(), dim=1).cpu()
+    def coreset(self, *, raw_space: bool = False) -> Tensor:
+        synthetic = self.synthetic_features.detach()
+        if raw_space:
+            if not self.standardize_features:
+                raise ValueError("raw-space coresets require standardize_features=True")
+            return (synthetic * self.feature_scale + self.feature_mean).cpu()
+        return F.normalize(synthetic, dim=1).cpu()
 
 
 def summarize_convergence(

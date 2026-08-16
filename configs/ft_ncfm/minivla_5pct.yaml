@@ -25,6 +25,7 @@ guide:
 
 influence:
   sign: paper
+  ranking: largest
   elite_ratio: 0.05
   reference_batch_size: 64
   lissa_depth: 50

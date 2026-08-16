@@ -78,6 +78,35 @@ def stratified_subset_indices(
     return sorted(selected)
 
 
+def disjoint_evaluation_indices(
+    total_size: int,
+    *,
+    reference_size: int,
+    selection_size: int,
+    test_size: int,
+    seed: int,
+) -> tuple[list[int], list[int], list[int]]:
+    """Create deterministic, mutually disjoint reference/selection/test indices."""
+    sizes = (reference_size, selection_size, test_size)
+    if total_size <= 0:
+        raise ValueError("total_size must be positive")
+    if any(size < 0 for size in sizes):
+        raise ValueError("Evaluation split sizes cannot be negative")
+    if sum(sizes) > total_size:
+        raise ValueError("Evaluation split sizes exceed the available dataset")
+    permutation = torch.randperm(
+        total_size, generator=torch.Generator().manual_seed(seed)
+    ).tolist()
+    reference_end = reference_size
+    selection_end = reference_end + selection_size
+    test_end = selection_end + test_size
+    return (
+        sorted(permutation[:reference_end]),
+        sorted(permutation[reference_end:selection_end]),
+        sorted(permutation[selection_end:test_end]),
+    )
+
+
 def load_mnist_minivla(
     cache_dir: str,
     *,
@@ -86,6 +115,29 @@ def load_mnist_minivla(
     seed: int,
     download: bool = True,
 ) -> tuple[Subset, Subset]:
+    train, reference, _, _ = load_mnist_minivla_splits(
+        cache_dir,
+        train_ratio=train_ratio,
+        reference_size=validation_size,
+        selection_size=0,
+        test_size=0,
+        seed=seed,
+        download=download,
+    )
+    return train, reference
+
+
+def load_mnist_minivla_splits(
+    cache_dir: str,
+    *,
+    train_ratio: float,
+    reference_size: int,
+    selection_size: int,
+    test_size: int,
+    seed: int,
+    download: bool = True,
+) -> tuple[Subset, Subset, Subset, Subset]:
+    """Load source data plus isolated influence, selection, and final-test splits."""
     from torchvision import datasets, transforms
 
     transform = transforms.ToTensor()
@@ -94,9 +146,16 @@ def load_mnist_minivla(
     train_dataset = MiniVLADataset(train_base)
     validation_dataset = MiniVLADataset(validation_base)
     train_indices = stratified_subset_indices(train_base.targets, train_ratio, seed=seed)
-    generator = torch.Generator().manual_seed(seed)
-    validation_count = min(validation_size, len(validation_base))
-    validation_indices = torch.randperm(len(validation_base), generator=generator)[
-        :validation_count
-    ].tolist()
-    return Subset(train_dataset, train_indices), Subset(validation_dataset, validation_indices)
+    reference_indices, selection_indices, test_indices = disjoint_evaluation_indices(
+        len(validation_base),
+        reference_size=reference_size,
+        selection_size=selection_size,
+        test_size=test_size,
+        seed=seed,
+    )
+    return (
+        Subset(train_dataset, train_indices),
+        Subset(validation_dataset, reference_indices),
+        Subset(validation_dataset, selection_indices),
+        Subset(validation_dataset, test_indices),
+    )

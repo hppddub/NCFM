@@ -160,16 +160,20 @@ class ContrastiveVerifier:
         *,
         beta: float = 1.0,
         elite_ratio: float = 0.05,
+        ranking: str = "largest",
         normalization: str = "positive_shift",
         epsilon: float = 1e-8,
         perturbations: VisionPerturbationLibrary | None = None,
     ) -> None:
         if not 0 < elite_ratio <= 1:
             raise ValueError("elite_ratio must be in (0, 1]")
+        if ranking not in {"largest", "smallest"}:
+            raise ValueError("ranking must be 'largest' or 'smallest'")
         self.model = model
         self.loss_fn = loss_fn
         self.beta = beta
         self.elite_ratio = elite_ratio
+        self.ranking = ranking
         self.normalization = normalization
         self.epsilon = epsilon
         self.perturbations = perturbations or VisionPerturbationLibrary()
@@ -194,7 +198,11 @@ class ContrastiveVerifier:
         if base_scores.ndim != 1 or len(sample_batches) != base_scores.numel():
             raise ValueError("A base score and sample batch are required for every sample")
         elite_count = max(1, math.ceil(base_scores.numel() * self.elite_ratio))
-        elite_indices = torch.topk(base_scores, k=elite_count).indices
+        elite_indices = torch.topk(
+            base_scores,
+            k=elite_count,
+            largest=self.ranking == "largest",
+        ).indices
         original_scores = torch.empty(elite_count, device=base_scores.device)
         counterexample_scores = torch.empty_like(original_scores)
         template_names: list[str] = []
