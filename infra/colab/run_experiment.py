@@ -96,14 +96,21 @@ def persist_seed(scratch_seed: Path, persistent_seed: Path) -> None:
     partial.replace(persistent_seed)
 
 
-def update_aggregate(persistent_output: Path, seeds: list[int]) -> None:
-    summaries = []
-    for seed in seeds:
-        seed_directory = persistent_output / f"seed_{seed}"
+def update_aggregate(persistent_output: Path) -> None:
+    """Aggregate every complete persisted seed, including earlier invocations."""
+    complete_seeds: list[tuple[int, Path]] = []
+    for seed_directory in persistent_output.glob("seed_*"):
+        try:
+            seed = int(seed_directory.name.removeprefix("seed_"))
+        except ValueError:
+            continue
         if is_complete_seed(seed_directory):
-            summaries.append(
-                json.loads((seed_directory / "summary.json").read_text(encoding="utf-8"))
-            )
+            complete_seeds.append((seed, seed_directory))
+
+    summaries = [
+        json.loads((seed_directory / "summary.json").read_text(encoding="utf-8"))
+        for _, seed_directory in sorted(complete_seeds)
+    ]
     write_json(persistent_output / "aggregate_summary.json", {"runs": summaries})
 
 
@@ -258,7 +265,7 @@ def main() -> int:
 
             persist_seed(scratch_seed, persistent_seed)
             completed.append(seed)
-            update_aggregate(persistent_output, seeds)
+            update_aggregate(persistent_output)
             session_manifest.update(
                 {
                     "completed_seeds": completed,
@@ -290,7 +297,7 @@ def main() -> int:
         }
     )
     write_json(session_path, session_manifest)
-    update_aggregate(persistent_output, seeds)
+    update_aggregate(persistent_output)
     return 0
 
 

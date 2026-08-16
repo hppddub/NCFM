@@ -9,6 +9,7 @@ from infra.colab.run_experiment import (
     is_complete_seed,
     named_run_directory,
     persist_seed,
+    update_aggregate,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +57,27 @@ def test_colab_runner_rejects_incomplete_seed(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="incomplete"):
         persist_seed(scratch_seed, tmp_path / "drive" / "seed_42")
+
+
+def test_colab_runner_aggregates_complete_seeds_across_invocations(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "run"
+    for seed in (42, 123, 1024):
+        seed_directory = output / f"seed_{seed}"
+        seed_directory.mkdir(parents=True)
+        for filename in REQUIRED_SEED_FILES:
+            contents = json.dumps({"seed": seed}) if filename == "summary.json" else filename
+            (seed_directory / filename).write_text(contents, encoding="utf-8")
+
+    incomplete = output / "seed_999"
+    incomplete.mkdir()
+    (incomplete / "summary.json").write_text('{"seed": 999}', encoding="utf-8")
+
+    update_aggregate(output)
+
+    aggregate = json.loads((output / "aggregate_summary.json").read_text())
+    assert [run["seed"] for run in aggregate["runs"]] == [42, 123, 1024]
 
 
 @pytest.mark.parametrize("run_name", ["", ".", "..", "../escape", "nested/name"])
