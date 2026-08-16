@@ -16,7 +16,11 @@ class MiniVLAPolicy(nn.Module):
             nn.ReLU(),
             nn.Conv2d(8, 16, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((2, 2)),
+            # The preceding convolutions map the fixed 28x28 MNIST proxy input
+            # to 7x7.  A 4x4/stride-3 average pool is exactly equivalent to
+            # adaptive 2x2 pooling for that shape, while retaining a
+            # deterministic CUDA backward path on the paper-class A100 runtime.
+            nn.AvgPool2d(kernel_size=4, stride=3),
             nn.Flatten(),
             nn.Linear(16 * 2 * 2, hidden_dim),
         )
