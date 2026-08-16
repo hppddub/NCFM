@@ -21,9 +21,12 @@ dev = [
   "ruff>=0.8",
 ]
 plots = ["matplotlib==3.8.4"]
+libero = ["h5py>=3.11,<4"]
 
 [project.scripts]
 ft-ncfm-poc = "ft_ncfm.experiment:main"
+ft-ncfm-ablation = "ft_ncfm.ablation:main"
+ft-ncfm-libero = "ft_ncfm.libero_experiment:main"
 
 [tool.setuptools.packages.find]
 include = ["ft_ncfm*"]
