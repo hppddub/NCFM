@@ -59,20 +59,27 @@ availability is not a scientific checkpointing mechanism.
 ## Persistence and resume behavior
 
 Experiments run from `/content/ft-ncfm-scratch` for local VM speed. After a seed
-finishes, the runner copies its five required artifacts to a `.partial` directory
-on Drive and atomically renames it to `seed_<seed>`. On a rerun, a seed is skipped
-only when all five artifacts exist:
+finishes, the runner validates its payload, copies it to a `.partial` directory,
+writes SHA-256 checksums, validates the persisted copy, and atomically renames it
+to `seed_<seed>`. On a rerun, a seed is skipped only when all six artifacts exist
+and pass content, checksum, finiteness, and seed-identity validation:
 
 - `manifest.json`
 - `summary.json`
 - `metrics.jsonl`
 - `influence.pt`
 - `coreset.pt`
+- `checksums.json`
 
 Session manifests and console logs are written directly to Drive. A Colab
 disconnect during a seed can therefore lose that seed's unfinished scratch work,
 but it cannot cause a partial seed to be mistaken for a completed result. Restart
 the notebook and rerun the same command to resume at the next incomplete seed.
+
+Seed directories produced before the checksum format are not silently upgraded.
+The current runner stops on such a named directory before starting billable work;
+preserve or move the legacy evidence and choose a new run name unless an explicit
+validated migration has been performed.
 
 Expected Drive layout:
 
@@ -98,8 +105,8 @@ For every completed seed:
 - Both `variants.uniform` and `variants.ft_ncfm` have finite losses.
 - A plumbing convergence pass requires `final_median < initial_median`; downstream
   task claims still require the unimplemented evaluation block.
-- The Drive directory contains the exact raw artifacts, not only copied console
-  output.
+- The persistent directory contains the exact raw artifacts, not only copied
+  console output, and `checksums.json` verifies every payload file.
 
 After the first true 5% seed completes, stop compute and perform the planned
 result review before launching the other two seeds.

@@ -16,6 +16,13 @@ a 5% MNIST-based VLA-shaped proxy that tests LiSSA influence scoring, visual-onl
 counterexamples, influence-weighted characteristic-function matching, and min-max
 loss convergence. It is a plumbing test, not a robotics benchmark result.
 
+The three-seed true-5% proxy run is complete on an A100-SXM4-80GB. All variants
+converged, but FT-NCFM had lower final CF loss in only one of three seeds. See the
+[A100 proof-of-concept report](docs/A100_POC_RESULTS_2026-08-15.md) for the exact
+environment, per-seed results, evidence checksum, and comparison boundary. The
+[final independent audit](docs/FINAL_AUDIT_2026-08-15.md) verifies the evidence
+and records the remaining scientific blockers.
+
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-ft.txt

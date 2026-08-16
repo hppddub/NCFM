@@ -63,6 +63,16 @@ reported as a VLA benchmark reproduction.
 - Gate: the adversarial game is numerically stable and its smoothed generator loss
   falls from the initial window to the final window. This validates plumbing only.
 
+### Phase 3 execution status (15 August 2026)
+
+The A100 convergence gate passed for uniform and FT-NCFM variants at seeds 42,
+123, and 1024 using a true 3,000-of-60,000 synthetic ratio. FT-NCFM produced the
+lower final CF loss in one of three seeds; the aggregate diagnostic therefore
+does not show an FT advantage. The full-data, random-5%, and influence-only
+downstream proxy baselines remain open. Exact hardware, timings, losses, artifact
+checksum, fixes, and interpretation are in
+`A100_POC_RESULTS_2026-08-15.md`.
+
 ## Phase 4 - mini-VLA benchmark
 
 - Replace the proxy adapter with LIBERO, initially one task and then one suite.

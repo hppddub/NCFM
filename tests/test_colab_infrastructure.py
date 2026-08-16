@@ -3,9 +3,13 @@ import json
 from pathlib import Path
 
 import pytest
+import torch
 
+from ft_ncfm.config import config_hash
 from infra.colab.run_experiment import (
     REQUIRED_SEED_FILES,
+    effective_experiment_config,
+    expected_run_identity,
     is_complete_seed,
     named_run_directory,
     persist_seed,
@@ -13,6 +17,36 @@ from infra.colab.run_experiment import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+
+def write_seed_payload(
+    seed_directory: Path,
+    seed: int,
+    *,
+    config_sha256: str = "config-sha",
+) -> None:
+    seed_directory.mkdir(parents=True)
+    manifest = {
+        "seed": seed,
+        "config_sha256": config_sha256,
+        "git_sha": "git-sha",
+        "git_dirty": False,
+        "upstream_sha": "upstream-sha",
+        "execution": {"provider": "colab"},
+        "config": {"experiment": {"name": "unit-test"}},
+        "runtime_overrides": {"download": True, "max_samples": None},
+        "device": "cuda",
+        "cuda": {"device_name": "NVIDIA A100-SXM4-80GB"},
+    }
+    (seed_directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (seed_directory / "summary.json").write_text(
+        json.dumps({"seed": seed}), encoding="utf-8"
+    )
+    (seed_directory / "metrics.jsonl").write_text(
+        json.dumps({"step": 0, "loss": 1.0}) + "\n", encoding="utf-8"
+    )
+    torch.save({"scores": torch.tensor([1.0])}, seed_directory / "influence.pt")
+    torch.save({"synthetic": torch.tensor([[1.0]])}, seed_directory / "coreset.pt")
 
 
 def test_colab_notebook_is_clean_and_expensive_runs_are_opt_in() -> None:
@@ -39,9 +73,7 @@ def test_colab_notebook_is_clean_and_expensive_runs_are_opt_in() -> None:
 def test_colab_runner_persists_only_a_complete_seed(tmp_path: Path) -> None:
     scratch_seed = tmp_path / "scratch" / "seed_42"
     persistent_seed = tmp_path / "drive" / "seed_42"
-    scratch_seed.mkdir(parents=True)
-    for filename in REQUIRED_SEED_FILES:
-        (scratch_seed / filename).write_text(filename, encoding="utf-8")
+    write_seed_payload(scratch_seed, 42)
 
     persist_seed(scratch_seed, persistent_seed)
 
@@ -64,20 +96,143 @@ def test_colab_runner_aggregates_complete_seeds_across_invocations(
 ) -> None:
     output = tmp_path / "run"
     for seed in (42, 123, 1024):
-        seed_directory = output / f"seed_{seed}"
-        seed_directory.mkdir(parents=True)
-        for filename in REQUIRED_SEED_FILES:
-            contents = json.dumps({"seed": seed}) if filename == "summary.json" else filename
-            (seed_directory / filename).write_text(contents, encoding="utf-8")
+        scratch_seed = tmp_path / "scratch" / f"seed_{seed}"
+        write_seed_payload(scratch_seed, seed)
+        persist_seed(scratch_seed, output / f"seed_{seed}")
 
-    incomplete = output / "seed_999"
-    incomplete.mkdir()
-    (incomplete / "summary.json").write_text('{"seed": 999}', encoding="utf-8")
+    partial = output / "seed_999.partial"
+    partial.mkdir()
+    (partial / "summary.json").write_text('{"seed": 999}', encoding="utf-8")
 
-    update_aggregate(output)
+    update_aggregate(output, [42, 123, 1024, 999])
 
     aggregate = json.loads((output / "aggregate_summary.json").read_text())
     assert [run["seed"] for run in aggregate["runs"]] == [42, 123, 1024]
+
+
+def test_colab_runner_rejects_incomplete_named_seed(tmp_path: Path) -> None:
+    output = tmp_path / "run"
+    incomplete = output / "seed_42"
+    incomplete.mkdir(parents=True)
+    (incomplete / "summary.json").write_text('{"seed": 42}', encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="incomplete"):
+        update_aggregate(output, [42])
+
+
+def test_colab_runner_rejects_corrupted_complete_seed(tmp_path: Path) -> None:
+    scratch_seed = tmp_path / "scratch" / "seed_42"
+    persistent_seed = tmp_path / "run" / "seed_42"
+    write_seed_payload(scratch_seed, 42)
+    persist_seed(scratch_seed, persistent_seed)
+    (persistent_seed / "summary.json").write_text('{"seed": 123}', encoding="utf-8")
+
+    assert not is_complete_seed(persistent_seed, 42)
+    with pytest.raises(RuntimeError, match="failed validation"):
+        update_aggregate(tmp_path / "run", [42])
+
+
+@pytest.mark.parametrize(
+    ("filename", "contents"),
+    [
+        ("summary.json", '{"seed": 42, "loss": NaN}'),
+        ("metrics.jsonl", '{"step": 0, "loss": Infinity}\n'),
+    ],
+)
+def test_colab_runner_rejects_nonfinite_json_values(
+    tmp_path: Path, filename: str, contents: str
+) -> None:
+    scratch_seed = tmp_path / "scratch" / "seed_42"
+    write_seed_payload(scratch_seed, 42)
+    (scratch_seed / filename).write_text(contents, encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="non-finite"):
+        persist_seed(scratch_seed, tmp_path / "run" / "seed_42")
+
+
+def test_colab_runner_rejects_incompatible_seed_manifests(tmp_path: Path) -> None:
+    output = tmp_path / "run"
+    for seed, config_sha in ((42, "config-a"), (123, "config-b")):
+        scratch_seed = tmp_path / "scratch" / f"seed_{seed}"
+        write_seed_payload(scratch_seed, seed, config_sha256=config_sha)
+        persist_seed(scratch_seed, output / f"seed_{seed}")
+
+    with pytest.raises(RuntimeError, match="incompatible"):
+        update_aggregate(output, [42, 123])
+
+
+def test_colab_runner_rejects_stored_seeds_from_another_requested_run(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "run"
+    for seed in (42, 123):
+        scratch_seed = tmp_path / "scratch" / f"seed_{seed}"
+        write_seed_payload(scratch_seed, seed, config_sha256="old-config")
+        persist_seed(scratch_seed, output / f"seed_{seed}")
+
+    expected_identity = {
+        "config_sha256": "new-config",
+        "git_sha": "git-sha",
+        "git_dirty": False,
+        "upstream_sha": "upstream-sha",
+        "provider": "colab",
+        "experiment": "unit-test",
+        "runtime_overrides": {"download": True, "max_samples": None},
+        "device": "cuda",
+        "gpu": "NVIDIA A100-SXM4-80GB",
+    }
+    with pytest.raises(RuntimeError, match="requested run"):
+        update_aggregate(output, [42, 123], expected_identity)
+
+
+def test_colab_runner_compares_all_runtime_overrides(tmp_path: Path) -> None:
+    output = tmp_path / "run"
+    scratch_seed = tmp_path / "scratch" / "seed_42"
+    write_seed_payload(scratch_seed, 42)
+    persist_seed(scratch_seed, output / "seed_42")
+
+    expected_identity = {
+        "config_sha256": "config-sha",
+        "git_sha": "git-sha",
+        "git_dirty": False,
+        "upstream_sha": "upstream-sha",
+        "provider": "colab",
+        "experiment": "unit-test",
+        "runtime_overrides": {"download": False, "max_samples": None},
+        "device": "cuda",
+        "gpu": "NVIDIA A100-SXM4-80GB",
+    }
+    with pytest.raises(RuntimeError, match="requested run"):
+        update_aggregate(output, [42], expected_identity)
+
+
+def test_colab_runner_hashes_the_child_output_override(tmp_path: Path) -> None:
+    declared = {
+        "experiment": {
+            "name": "unit-test",
+            "output_dir": "artifacts/from-yaml",
+            "seeds": [42],
+        }
+    }
+    scratch_output = (tmp_path / "scratch" / "run").resolve()
+
+    effective = effective_experiment_config(declared, scratch_output)
+    expected_identity = expected_run_identity(
+        REPOSITORY_ROOT,
+        effective,
+        {"cuda_available": False},
+        max_samples=1000,
+        offline=True,
+    )
+
+    assert declared["experiment"]["output_dir"] == "artifacts/from-yaml"
+    assert effective["experiment"]["output_dir"] == str(scratch_output)
+    assert config_hash(effective) != config_hash(declared)
+    assert expected_identity["config_sha256"] == config_hash(effective)
+    assert expected_identity["runtime_overrides"] == {
+        "download": False,
+        "max_samples": 1000,
+    }
 
 
 @pytest.mark.parametrize("run_name", ["", ".", "..", "../escape", "nested/name"])
